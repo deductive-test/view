@@ -44,13 +44,13 @@
 						</v-btn>
 					</v-app-bar>
 	
-					<v-row dense v-for="rowX in 3" :key="'rowX-'+rowX">
-						<v-col v-for="colY in 3" :key="'colY-'+colY">
-							<v-card v-ripple @click="showDialog((rowX - 1) * 3 + colY)"
-							:class="input.cell[(rowX - 1) * 3 + colY -1] ? 'black--text' : 'grey--text'">
-								<v-card-title class="justify-center">{{(rowX - 1) * 3 + colY}}</v-card-title>
-								<v-card-text :class="`text-center ${input.cell[(rowX - 1) * 3 + colY -1] ? 'black--text' : 'grey--text'}`">
-									{{input.cell[(rowX - 1) * 3 + colY -1]||'not set'}}
+					<v-row dense v-for="rowY in 3" :key="'rowY-'+rowY">
+						<v-col v-for="colX in 3" :key="'colX-'+colX">
+							<v-card v-ripple @click="showDialog((rowY - 1) * 3 + colX)"
+							:class="input.cell[(rowY - 1) * 3 + colX -1] ? 'black--text' : 'grey--text'">
+								<v-card-title class="justify-center">{{(rowY - 1) * 3 + colX}}</v-card-title>
+								<v-card-text :class="`text-center ${input.cell[(rowY - 1) * 3 + colX -1] ? 'black--text' : 'grey--text'}`">
+									{{input.cell[(rowY - 1) * 3 + colX -1]||'not set'}}
 								</v-card-text>
 							</v-card>
 						</v-col>
