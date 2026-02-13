@@ -1,0 +1,266 @@
+﻿[
+	{
+		"panel_id": "0",
+		"panel_name": "兼定2"
+	},
+	{
+		"panel_id": "0",
+		"panel_name": "粟田口2"
+	},
+	{
+		"panel_id": "929",
+		"panel_name": "市街昼"
+	},
+	{
+		"panel_id": "930",
+		"panel_name": "屋内昼"
+	},
+	{
+		"panel_id": "931",
+		"panel_name": "市街夜"
+	},
+	{
+		"panel_id": "932",
+		"panel_name": "屋内夜"
+	},
+	{
+		"panel_id": "933",
+		"panel_name": "城内夜"
+	},
+	{
+		"panel_id": "934",
+		"panel_name": "市街雨"
+	},
+	{
+		"panel_id": "935",
+		"panel_name": "勝利A評価"
+	},
+	{
+		"panel_id": "936",
+		"panel_name": "勝利1ターン"
+	},
+	{
+		"panel_id": "937",
+		"panel_name": "初合計90"
+	},
+	{
+		"panel_id": "938",
+		"panel_name": "極1"
+	},
+	{
+		"panel_id": "939",
+		"panel_name": "乱舞Lv4以上1"
+	},
+	{
+		"panel_id": "940",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "942",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "943",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "944",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "945",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "946",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "949",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "950",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "951",
+		"panel_name": "馬3"
+	},
+	{
+		"panel_id": "952",
+		"panel_name": "軽歩兵2"
+	},
+	{
+		"panel_id": "953",
+		"panel_name": "軽騎兵2"
+	},
+	{
+		"panel_id": "954",
+		"panel_name": "重歩兵2"
+	},
+	{
+		"panel_id": "955",
+		"panel_name": "重騎兵1"
+	},
+	{
+		"panel_id": "956",
+		"panel_name": "精鋭兵1"
+	},
+	{
+		"panel_id": "957",
+		"panel_name": "投石兵2"
+	},
+	{
+		"panel_id": "958",
+		"panel_name": "弓兵2"
+	},
+	{
+		"panel_id": "959",
+		"panel_name": "銃兵2"
+	},
+	{
+		"panel_id": "960",
+		"panel_name": "盾兵2"
+	},
+	{
+		"panel_id": "961",
+		"panel_name": "槍兵1"
+	},
+	{
+		"panel_id": "962",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "969",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "970",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "971",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "973",
+		"panel_name": "短刀2夜戦"
+	},
+	{
+		"panel_id": "974",
+		"panel_name": "脇差2夜戦"
+	},
+	{
+		"panel_id": "975",
+		"panel_name": "打刀2夜戦"
+	},
+	{
+		"panel_id": "976",
+		"panel_name": "太刀2"
+	},
+	{
+		"panel_id": "977",
+		"panel_name": "大太刀2"
+	},
+	{
+		"panel_id": "978",
+		"panel_name": "槍2"
+	},
+	{
+		"panel_id": "979",
+		"panel_name": "薙刀2"
+	},
+	{
+		"panel_id": "980",
+		"panel_name": "脇差1打刀1(二刀開眼)"
+	},
+	{
+		"panel_id": "980",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "982",
+		"panel_name": "堀川2"
+	},
+	{
+		"panel_id": "983",
+		"panel_name": "三条2"
+	},
+	{
+		"panel_id": "984",
+		"panel_name": "来2"
+	},
+	{
+		"panel_id": "985",
+		"panel_name": "左文字2"
+	},
+	{
+		"panel_id": "986",
+		"panel_name": "長船1"
+	},
+	{
+		"panel_id": "988",
+		"panel_name": "虎徹1"
+	},
+	{
+		"panel_id": "989",
+		"panel_name": "青江1"
+	},
+	{
+		"panel_id": "990",
+		"panel_name": "貞宗1"
+	},
+	{
+		"panel_id": "991",
+		"panel_name": "村正1"
+	},
+	{
+		"panel_id": "992",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "995",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "996",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "997",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "998",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1003",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1004",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1005",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1006",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1007",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1008",
+		"panel_name": "特別な敵"
+	},
+	{
+		"panel_id": "1009",
+		"panel_name": "特別な敵"
+	}
+]

@@ -56,6 +56,21 @@
 						</v-col>
 					</v-row>
 
+					<v-row>
+						<v-col>
+							<v-textarea v-model="input.sallyStr" @keydown.enter="importSally" label="sally" dense outlined hide-details>
+								<template v-slot:append>
+									<v-btn @click="importSally">do</v-btn>
+								</template>
+							</v-textarea>
+						</v-col>
+					</v-row>
+					<v-row v-if="input.sallyParse">
+						<v-col><!--  class="text-pre-wrap" {{input.sallyParse}}-->
+							<v-textarea v-model="input.sallyParse" label="parsed" dense outlined hide-details></v-textarea>
+						</v-col>
+					</v-row>
+
 					<v-row class="pt-3"><v-col>lastModified: {{lm}}</v-col></v-row>
 
 					<div style="text-align: right;">
@@ -203,8 +218,7 @@
 	const myvue = new Vue({
 		el: '#app',
 		vuetify: new Vuetify(),
-		components: {
-		},
+		components: {},
 		computed: {
 			showSoubi () {
 				let res = JSON.parse(JSON.stringify(this.select.soubi))
@@ -252,7 +266,9 @@
 			URL:{},
 			input:{
 				keyword:'',
-				cell:['','','','','','','','','',]
+				cell:['','','','','','','','','',],
+				sallyStr:'',
+				sallyParse:'',
 			},
 			inputDialog:{
 				show:false,
@@ -312,6 +328,52 @@
 				],
 			},
 
+			gemini:{
+				"other":{
+					"soubi":["槍兵","精鋭兵","重騎兵","軽歩兵","軽騎兵","重歩兵","弓兵","投石兵","銃兵","盾兵","馬"],
+					"swordType":["短刀","脇差","打刀","太刀","大太刀","槍","薙刀","初","極","乱舞Lv4以上"],
+					"touha":["三条","堀川","兼定","来","粟田口","左文字","貞宗","青江","村正","虎徹","長船"],
+					"field":["屋内","屋内 夜","市街","市街 夜","市街 雨(7-2)","城内 夜(7-4遠戦全無効)"],
+					"other":["初合計Lv90","極1","乱舞Lv4以上1","勝利 1ターン","勝利 A評価"]
+				},
+				"mission":[
+					[{"soubi":"槍兵","value":1}],
+					[{"soubi":"精鋭兵","value":1}],
+					[{"soubi":"重騎兵","value":1}],
+					[{"soubi":"軽歩兵","value":2}],
+					[{"soubi":"軽騎兵","value":2}],
+					[{"soubi":"重歩兵","value":2}],
+					[{"soubi":"弓兵","value":2}],
+					[{"soubi":"投石兵","value":2}],
+					[{"soubi":"銃兵","value":2}],
+					[{"soubi":"盾兵","value":2}],
+					[{"soubi":"馬","value":3}],
+					[{"touha":"三条","value":2}],
+					[{"touha":"堀川","value":2}],
+					[{"touha":"兼定","value":2}],
+					[{"touha":"来","value":2}],
+					[{"touha":"粟田口","value":2}],
+					[{"touha":"左文字","value":2}],
+					[{"touha":"貞宗","value":1}],
+					[{"touha":"青江","value":1}],
+					[{"touha":"村正","value":1}],
+					[{"touha":"虎徹","value":1}],
+					[{"touha":"長船","value":1}],
+					[{"swordType":"短刀","value":2,"field":"夜戦"}],
+					[{"swordType":"脇差","value":2,"field":"夜戦"}],
+					[{"swordType":"打刀","value":2,"field":"夜戦"}],
+					[{"swordType":"太刀","value":2}],
+					[{"swordType":"大太刀","value":2}],
+					[{"swordType":"槍","value":2}],
+					[{"swordType":"薙刀","value":2}],
+					[{"swordType":"脇差","value":1},{"swordType":"打刀","value":1}],
+					[{"swordType":"初","level":90}],
+					[{"swordType":"極","value":1}],
+					[{"swordType":"乱舞Lv4以上","value":1}]
+				]
+			},
+
+			panel:[],
 		}, // data
 		mounted() {
 			this.lm = new Date(document.lastModified).toLocaleString()
@@ -322,6 +384,11 @@
 				query: Object.fromEntries(url.searchParams),
 				BASE: url.origin + '/',
 			}
+			this.zjax({
+				url: './panel.json'
+			},done=>{
+				this.panel=done
+			})
 			this.loading = false
 			console.log(`${new Date().toLocaleString('ja-JP',this.cl)} [mounted] end`)
 		}, // mounted
@@ -347,6 +414,24 @@
 				this.$vuetify.goTo(this.$refs.inputDialog,{container:this.$refs.inputDialogParent})
 			},//scrollTop
 
+			importSally(){
+				try {
+					this.input.sallyParse=''
+					const sally = JSON.parse(this.input.sallyStr)
+					const sallyNew = []
+					for (let i = 0; i < sally.event.strike.sheet["3"].panel.length; i++) {
+						const row = sally.event.strike.sheet["3"].panel[i]
+						const fiP = this.panel.findIndex(x=>x.panel_id==row.panel_id)
+						if (-1 < fiP) {
+							sallyNew.push(`${this.panel[fiP].panel_name}`)
+						}else{
+							sallyNew.push(`${row.panel_id}`)
+						}
+					}
+					this.input.sallyParse=sallyNew.join('\n')
+				} catch (e) { console.error(e); alert(e) }
+			},//importSally
+
 
 
 			// --------------------------------------------------
@@ -359,6 +444,39 @@
 				this.isDebug = !this.isDebug
 				}
 			}, // changeDebugMode
+			
+			isFunction (f) {
+				return (typeof f).toLowerCase() == 'function'
+			},//isFunction
+			
+			zjax (option, doneFunc, failFunc, alwaysFunc) {
+				var base = {
+					type: 'get',
+					async: true,
+					contentType: 'application/json',
+					cache: false,
+				}
+				var param = $.extend(base, option)
+
+				if (param.data && (typeof param.data).toLowerCase() != 'string' && param.type.toLowerCase() !== 'get') {
+					param.data = JSON.stringify(param.data)
+				}
+
+				console.log(`${(new Date()).toLocaleString()} ${(new Date()).getTime()} [zjax] start\n${param.url}`)
+				let sec = (new Date()).getTime()
+				$.ajax(param)
+					.done(d => {
+						console.log(`${(new Date()).toLocaleString()} ${(new Date()).getTime()} [zjax] done\n${param.url}\nsec = ${(new Date().getTime()) - sec}`)
+						// console.log(d)
+						if (this.isFunction(doneFunc)) doneFunc(d)
+					}).fail(d => {
+						console.error(`${(new Date()).toLocaleString()} ${(new Date()).getTime()} [zjax] fail\n${param.url}\nsec = ${(new Date().getTime()) - sec}`)
+						console.error(d)
+						if (this.isFunction(failFunc)) failFunc(d)
+					}).always(d => {
+						if (this.isFunction(alwaysFunc)) alwaysFunc(d)
+					})
+			}, // zjax
 		}, // methods
 	})
 	</script>
