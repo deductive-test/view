@@ -1,13 +1,5 @@
 ﻿[
 	{
-		"panel_id": "987",
-		"panel_name": "兼定2"
-	},
-	{
-		"panel_id": "981",
-		"panel_name": "粟田口2"
-	},
-	{
 		"panel_id": "929",
 		"panel_name": "市街昼"
 	},
@@ -180,8 +172,8 @@
 		"panel_name": "脇差1打刀1(二刀開眼)"
 	},
 	{
-		"panel_id": "980",
-		"panel_name": "特別な敵"
+		"panel_id": "981",
+		"panel_name": "粟田口2"
 	},
 	{
 		"panel_id": "982",
@@ -202,6 +194,10 @@
 	{
 		"panel_id": "986",
 		"panel_name": "長船1"
+	},
+	{
+		"panel_id": "987",
+		"panel_name": "兼定2"
 	},
 	{
 		"panel_id": "988",
@@ -269,4 +265,5 @@
 	}
 
 ]
+
 
