@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "token alarm",
+  "version": "1.0.0",
+  "description": "token alarm",
+  "permissions": ["notifications", "alarms"],
+  "host_permissions": [
+    "https://play.games.dmm.com/*",
+    "https://*.touken-ranbu.jp/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png",
+    "default_title": "アラーム一覧"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://play.games.dmm.com/game/tohken*",
+        "https://*.touken-ranbu.jp/*"
+      ],
+      "js": ["injected.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://play.games.dmm.com/game/tohken*",
+        "https://*.touken-ranbu.jp/*"
+      ],
+      "js": ["content_script.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
