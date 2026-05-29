@@ -1,7 +1,7 @@
 # 刀剣乱舞 Chrome拡張 実装プラン
 
 ## Context
-刀剣乱舞 （https://play.games.dmm.com/game/tohken） 向けのChrome拡張を新規作成する。
+刀剣乱舞（ https://play.games.dmm.com/game/tohken ）向けのChrome拡張を新規作成する。
 ゲームが呼び出す API `https://w006.touken-ranbu.jp/home/index` のレスポンスを傍受し、
 各部隊・内番の完了10秒前にデスクトップ通知を出す。
 
