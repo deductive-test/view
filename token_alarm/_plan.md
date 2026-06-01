@@ -3,7 +3,7 @@
 ## Context
 刀剣乱舞（ https://play.games.dmm.com/game/tohken ）向けのChrome拡張を新規作成する。
 ゲームが呼び出す API `https://w006.touken-ranbu.jp/home/index` のレスポンスを傍受し、
-各部隊・内番の完了10秒前にデスクトップ通知を出す。
+各部隊・内番の完了1分前にデスクトップ通知を出す。
 
 ---
 
@@ -46,7 +46,7 @@
 2. `party[1～5].finished_at` をループ
    - 空文字なら skip
    - JST文字列（"2026-05-21 16:16:47"）を `Date.parse(str + "+09:00")` でms変換
-   - `alarmTime = parsedMs - 10_000`（10秒前）
+   - `alarmTime = parsedMs - 60_000`（60秒前）
    - `chrome.alarms.create("party_N", { when: alarmTime })`
 3. `situation.duty.finished_at` も同様
    - `chrome.alarms.create("duty", { when: alarmTime })`
@@ -59,7 +59,7 @@
 
 ## アラームの制限について
 - Chrome は通常、アラームを最短1分に制限するが、**未パッケージ（Load unpacked）の開発用拡張は制限なし**
-- 本拡張はローカルで「パッケージなし読み込み」で使用するため、10秒前アラームは正常に動作する
+- 本拡張はローカルで「パッケージなし読み込み」で使用するため、60秒前アラームは正常に動作する
 
 ---
 
