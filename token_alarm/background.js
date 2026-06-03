@@ -48,12 +48,14 @@ chrome.runtime.onMessage.addListener((message) => {
 
   // 既存のアラームをすべてクリアしてから新たに登録
   chrome.alarms.clearAll(() => {
-    // 通知1: party[1～5] の完了通知
-    const parties = data.party ?? {};
-    for (const key of Object.keys(parties)) {
-      const party = parties[key];
-      if (party.finished_at) {
-        scheduleAlarm(`party_${party.party_no}`, party.finished_at);
+    // 通知1: 遠征中の部隊完了通知
+    // party[N].finished_at は前回遠征の完了時刻が残り続けるため使用しない。
+    // situation.conquest[N].finished_at が現在進行中の遠征の正しい完了時刻。
+    const conquests = data.situation?.conquest ?? {};
+    for (const key of Object.keys(conquests)) {
+      const conquest = conquests[key];
+      if (conquest.finished_at) {
+        scheduleAlarm(`party_${key}`, conquest.finished_at);
       }
     }
 
