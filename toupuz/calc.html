@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>刀剣乱舞 ぱずぎり 素材計算ツール</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.css">
+<style>
+	/* ===== 全体 ===== */
+	html { overflow-y: auto; }
+	body { margin: 0; }
+	.page { max-width: 1280px; }
+	.pre-line { white-space: pre-line; }
+	.num { font-variant-numeric: tabular-nums; }
+	.v-app-bar-title { font-weight: 700; }
+	.section-title { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
+	.muted { color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	/* リンク: テーマの濃いオレンジ（訪問済み・ホバーでも色は変えない） */
+	a { color: rgb(var(--v-theme-link)); }
+	/* 箇条書き: 行頭の「・」が p タグの左端と揃うよう、1文字分右へ */
+	ul { padding-left: 1em; }
+	.note { font-size: .8rem; line-height: 1.6; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+
+	/* ===== 目標アイテム select（ネイティブselectをVuetify風に整形） ===== */
+	.field-label { display: block; font-size: .8rem; margin-bottom: 4px; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.select-wrap { position: relative; }
+	.native-select {
+		width: 100%; min-height: 48px; padding: 0 40px 0 14px;
+		font: inherit; font-size: 1rem;
+		color: rgb(var(--v-theme-on-surface));
+		background: rgb(var(--v-theme-surface));
+		border: 1px solid rgba(var(--v-theme-on-surface), .38);
+		border-radius: 4px;
+		appearance: none; -webkit-appearance: none;
+		cursor: pointer;
+	}
+	.native-select:hover { border-color: rgba(var(--v-theme-on-surface), .87); }
+	.native-select:focus { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: -1px; border-color: transparent; }
+	.v-theme--dark .native-select { color-scheme: dark; }
+	.select-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .7; }
+
+	/* ===== 所持数一覧 ===== */
+	.inventory-list { max-height: 560px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+	.inventory-row {
+		display: flex; align-items: center; gap: 12px;
+		padding: 6px 0;
+		border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	}
+	.inventory-row:last-child { border-bottom: none; }
+	.inventory-name { flex: 1 1 auto; min-width: 0; font-size: .95rem; cursor: pointer; }
+	.inventory-need { display: inline-block; margin-left: 6px; font-size: .75rem; color: rgb(var(--v-theme-error)); white-space: nowrap; }
+	.inventory-input { flex: 0 0 116px; }
+	.filter-toggle { width: 100%; }
+	.filter-toggle .v-btn { flex: 1 1 0; }
+
+	/* ===== 結果テーブル ===== */
+	.result-table th { white-space: nowrap; }
+	.result-table td.need { font-weight: 700; }
+	.result-table tr.row-done td { color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.result-table tr.row-done td.need { font-weight: 400; }
+	/* 区切りの境界線（目標 | bom.json 記載の材料 | 分解して出てきたアイテム） */
+	.result-table tr.section-break td { border-top: 2px solid rgba(var(--v-theme-on-surface), .45) !important; }
+	.summary { font-size: 1rem; line-height: 1.7; margin-bottom: 12px; }
+	.summary strong { font-size: 1.15rem; }
+
+	/* ===== アドレス推薦 ===== */
+	.addr-table td { vertical-align: top; padding-top: 10px !important; padding-bottom: 10px !important; }
+	.rank { font-size: 1.2rem; font-weight: 700; line-height: 1.2; }
+	.addr-table th { white-space: nowrap; }
+	.tie { display: block; white-space: nowrap; font-size: .7rem; font-weight: 400; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.addr-code { font-weight: 700; white-space: nowrap; }
+	.addr-name { font-size: .8rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+	.only-mark { margin-left: 6px; font-size: .7rem; font-weight: 700; }
+	.score { font-weight: 700; }
+	.kind-inline { display: none; }
+
+	/* ===== スマホ幅 ===== */
+	@media (max-width: 599px) {
+		/* ヘッダー: タイトルを少し小さくし、バージョンはタイトルの下の行に表示 */
+		.v-app-bar-title { font-size: 1.1rem; line-height: 1.25; }
+		.v-app-bar-title .app-version { display: block; margin-left: 0 !important; line-height: 1.2; }
+		/* 右側のボタン（報告・info）を少し小さくして、タイトルの幅を確保 */
+		.v-app-bar .v-toolbar__append { margin-inline-end: 4px; }
+		.v-app-bar .v-toolbar__append .v-btn { width: 40px; height: 40px; }
+		.v-app-bar .v-toolbar-title { margin-inline-start: 12px; }
+	}
+	@media (max-width: 419px) {
+		/* 一般的なスマホ幅ではタイトルが切れないよう、もう一段小さくする */
+		.v-app-bar-title { font-size: .98rem; }
+	}
+	@media (max-width: 359px) {
+		/* さらに狭い端末 */
+		.v-app-bar-title { font-size: .85rem; }
+	}
+	@media (max-width: 599px) {
+		/* 所持数は一覧の中でスクロールさせず、ページ全体でスクロール */
+		.inventory-list { max-height: none; overflow: visible; }
+		/* 結果表: 区分列をアイテム名の下に移して4列に収める */
+		.result-table .kind-col { display: none; }
+		.kind-inline { display: block; margin-top: 2px; }
+		.result-table th, .result-table td { padding: 0 8px !important; }
+		.result-table td { height: auto !important; padding-top: 6px !important; padding-bottom: 6px !important; }
+		/* アドレス表: 行をカード状に積む */
+		.addr-table thead { display: none; }
+		.addr-table table, .addr-table tbody { display: block; }
+		.addr-table tr {
+			display: grid;
+			grid-template-columns: 3.2em 1fr;
+			grid-template-areas: "rank addr" "rank items" "rank score";
+			row-gap: 6px;
+			padding: 12px 0;
+			border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+		}
+		.addr-table td { display: block; border: none !important; height: auto !important; padding: 0 8px !important; }
+		.addr-table td:nth-child(1) { grid-area: rank; text-align: center !important; }
+		.addr-table td:nth-child(2) { grid-area: addr; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+		.addr-table td:nth-child(3) { grid-area: items; }
+		.addr-table td:nth-child(4) { grid-area: score; text-align: left !important; display: flex; align-items: baseline; gap: 8px; }
+		.addr-table .breakdown { white-space: normal; }
+	}
+	.breakdown { font-size: .72rem; line-height: 1.5; white-space: nowrap; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ===== 画面テンプレート（Vueのテンプレートコンパイラで解釈させるため x-template に置く） ===== -->
+<script type="text/x-template" id="app-template">
+<v-app>
+	<v-app-bar color="primary" density="comfortable" flat>
+		<v-app-bar-title>
+			刀剣乱舞 ぱずぎり 素材計算ツール
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.0</span>
+		</v-app-bar-title>
+		<template v-slot:append>
+			<v-btn icon="mdi-message-draw" aria-label="報告" title="報告" @click="dialogReport.isShow = true"></v-btn>
+			<v-btn icon="mdi-information-outline" aria-label="このツールについて" @click="dialogAbout.isShow = true"></v-btn>
+		</template>
+	</v-app-bar>
+
+	<!-- 報告ダイアログ -->
+	<v-dialog v-model="dialogReport.isShow" :persistent="dialogReport.persistent" max-width="600" scrollable>
+		<v-card>
+			<v-card-title class="text-center">{{ dialogReport.title }}</v-card-title>
+			<v-divider></v-divider>
+			<v-card-text class="text-high-emphasis pt-3">
+				<p class="mb-4">
+					追加して欲しいデータ、バグなどの報告がございましたら、こちらから入力をお願い致します。不定期で順次対応していきます。
+				</p>
+				<v-select
+					v-model="reportForm.type"
+					:items="reportTypes"
+					label="種別"
+					variant="outlined" density="comfortable"
+					class="mb-2"
+					:disabled="reportSending"
+				></v-select>
+				<v-text-field
+					v-model="reportForm.title"
+					label="タイトル"
+					variant="outlined" density="comfortable"
+					class="mb-2"
+					clearable
+					:maxlength="reportLimits.title" :counter="reportLimits.title"
+					:disabled="reportSending"
+				></v-text-field>
+				<v-textarea
+					v-model="reportForm.body"
+					label="本文"
+					rows="3"
+					clearable
+					:maxlength="reportLimits.body" :counter="reportLimits.body"
+					:disabled="reportSending"
+					variant="outlined" density="comfortable"
+				></v-textarea>
+			</v-card-text>
+			<v-divider></v-divider>
+			<v-card-actions>
+				<v-spacer></v-spacer>
+				<v-btn variant="flat" color="grey" prepend-icon="mdi-close" :disabled="reportSending" @click="dialogReport.isShow = false">キャンセル</v-btn>
+				<v-spacer></v-spacer>
+				<v-btn variant="flat" color="accent" prepend-icon="mdi-send" :disabled="!canSubmitReport" :loading="reportSending" @click="onReportSubmit">&emsp;送信&emsp;</v-btn>
+				<v-spacer></v-spacer>
+			</v-card-actions>
+		</v-card>
+	</v-dialog>
+
+	<!-- about ダイアログ -->
+	<v-dialog v-model="dialogAbout.isShow" :persistent="dialogAbout.persistent" max-width="600" scrollable>
+		<v-card>
+			<v-card-title v-if="dialogAbout.title" class="text-center">{{ dialogAbout.title }}</v-card-title>
+			<v-card-subtitle v-if="dialogAbout.subtitle" class="text-high-emphasis">{{ dialogAbout.subtitle }}</v-card-subtitle>
+			<v-divider></v-divider>
+			<v-card-text class="text-high-emphasis pt-3">
+				<p>
+					スマホアプリゲーム <a href="https://touken-puzzle.com/" target="_blank" rel="noopener">『刀剣乱舞 ぱずぎり』</a> の攻略を目的としたWEBツールです。
+				</p>
+				<p>
+					合成したいアイテムと、現在の所持アイテム数を入力すると、合成アイテムに必要な素材を得るために最も周回すべきマップを表示します。
+					<br><span class="muted">※周回マップで必ずしもアイテムがドロップするとは限りません。ドロップ率や法則などは未確定です。</span>
+					<br><span class="muted">※不足しているアイテムのうち、複数種類を同時に狙えること、不足数量、取得可能な場所の少なさをもとに計算した優先度で重み付けしています。</span>
+				</p>
+				<br>
+				<p>
+					アイテムやレシピは順次追加していきます。
+					<br>現在の設定値を確認したい場合は、それぞれ以下よりご確認ください。
+				</p>
+				<ul>
+					<li><a href="data/item.json" target="_blank" rel="noopener">アイテムマスタ</a> - ドロップアイテム、合成アイテムを管理</li>
+					<li><a href="data/map.json" target="_blank" rel="noopener">マップマスタ</a> - 各マスごとのアイテムドロップを管理</li>
+					<li><a href="data/bom.json" target="_blank" rel="noopener">レシピマスタ</a> - 合成アイテムのレシピを管理</li>
+				</ul>
+				<br>
+				<p>
+					このサイトでは報告を受け付けています。
+					<br>追加してほしいデータ、バグ報告などがございましたら、画面右上のコメントボタンからお送りください。
+					<br><span class="muted">※報告者の個人情報(ブラウザのログイン情報、IPアドレス、位置情報など)が送信されることはありません。</span>
+					<br><span class="muted">※個人の趣味で設置しておりますので、状況に応じて報告機能を制限することがあります。</span>
+				</p>
+				<br>
+				<p class="muted">Author: <a href="https://x.com/deductive_test" target="_blank" rel="noopener">@deductive_test</a></p>
+				<p class="muted">Last Update: {{lastModified}}</p>
+			</v-card-text>
+			<v-divider></v-divider>
+			<v-card-actions>
+				<v-spacer></v-spacer>
+				<v-btn variant="text" @click="dialogAbout.isShow = false">Close</v-btn>
+				<v-spacer></v-spacer>
+			</v-card-actions>
+		</v-card>
+	</v-dialog>
+
+	<v-main>
+		<v-container class="page py-4">
+
+			<!-- 読み込み中 -->
+			<div v-if="loading" class="d-flex align-center ga-3 pa-6">
+				<v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+				<span>データを読み込んでいます…</span>
+			</div>
+
+			<!-- データを読み込めない・データに誤りがある（計算不可）。詳細は開発者向けにコンソールへ出力 -->
+			<v-alert v-if="dataErrors.length" type="error" variant="tonal" class="mb-4">
+				データを読み込めなかったため、計算できません。時間をおいてページを再読み込みしてください。
+			</v-alert>
+
+			<v-row v-if="ready">
+				<!-- ===== 左列：目標設定・所持数 ===== -->
+				<v-col cols="12" md="5" lg="4">
+
+					<!-- 目標設定 -->
+					<v-card class="mb-4" border flat>
+						<v-card-title class="section-title pt-4">目標設定</v-card-title>
+						<v-card-text>
+							<label class="field-label" for="target-select">最終的に欲しいアイテム</label>
+							<div class="select-wrap mb-5">
+								<select id="target-select" class="native-select" v-model="targetId">
+									<optgroup v-for="g in targetGroups" :key="g.label" :label="g.label">
+										<option v-for="it in g.items" :key="it.id" :value="it.id" :disabled="it.pending">{{ it.text }}{{ it.pending ? '（調査中）' : '' }}</option>
+									</optgroup>
+								</select>
+								<v-icon icon="mdi-menu-down" class="select-arrow"></v-icon>
+							</div>
+
+							<v-text-field
+								v-model="targetQtyInput"
+								label="必要数量"
+								type="number" min="0" step="1" inputmode="numeric"
+								suffix="個"
+								variant="outlined" density="comfortable"
+								:rules="[qtyRule]"
+								@keyup.enter="onCalculate"
+							></v-text-field>
+
+							<v-btn block color="accent" size="large" class="mt-1 font-weight-bold"
+								prepend-icon="mdi-calculator-variant-outline"
+								:disabled="!canCalculate"
+								@click="onCalculate">計算</v-btn>
+						</v-card-text>
+					</v-card>
+
+					<!-- 所持数 -->
+					<v-card border flat>
+						<v-card-title class="section-title pt-4">所持数</v-card-title>
+						<v-card-subtitle class="pb-2">入力した値はこのブラウザに自動で保存されます</v-card-subtitle>
+						<v-card-text>
+							<v-text-field
+								v-model="inventorySearch"
+								label="アイテム名で検索"
+								prepend-inner-icon="mdi-magnify"
+								variant="outlined" density="compact"
+								clearable hide-details
+								class="mb-3"
+							></v-text-field>
+
+							<v-btn-toggle v-model="inventoryFilter" mandatory divided density="compact"
+								variant="outlined" color="primary" class="filter-toggle mb-3">
+								<v-btn value="all">すべて</v-btn>
+								<v-btn value="nonzero">0以外</v-btn>
+								<v-btn value="short" :disabled="!result">不足中</v-btn>
+							</v-btn-toggle>
+
+							<div class="inventory-list">
+								<div v-for="it in inventoryRows" :key="it.id" class="inventory-row">
+									<label class="inventory-name" :for="'inv-' + it.id">
+										{{ it.text }}<span v-if="needOf(it.id) > 0" class="inventory-need">あと{{ fmt(needOf(it.id)) }}</span>
+									</label>
+									<v-text-field
+										:id="'inv-' + it.id"
+										class="inventory-input"
+										:model-value="inventoryInputs[it.id]"
+										@update:model-value="onInventoryInput(it.id, $event)"
+										type="number" min="0" step="1" inputmode="numeric"
+										placeholder="0"
+										variant="outlined" density="compact"
+										hide-details="auto"
+										:rules="[qtyRule]"
+									></v-text-field>
+								</div>
+								<div v-if="!inventoryRows.length" class="muted pa-3">該当するアイテムはありません。</div>
+							</div>
+						</v-card-text>
+					</v-card>
+				</v-col>
+
+				<!-- ===== 右列：計算結果・推奨アドレス ===== -->
+				<v-col cols="12" md="7" lg="8">
+
+					<!-- 計算結果 -->
+					<v-card id="result-card" class="mb-4" border flat>
+						<v-card-title class="section-title pt-4">計算結果</v-card-title>
+						<v-card-text>
+							<div v-if="!result" class="muted">目標のアイテムと数量を設定して「計算」を押してください。</div>
+							<template v-else>
+								<v-alert v-if="isStale" type="info" variant="tonal" density="compact" class="mb-3">
+									計算後に入力が変更されています。最新の内容で見るには、もう一度「計算」を押してください。
+								</v-alert>
+
+								<div class="summary">
+									<template v-if="result.targetRow.net > 0">
+										「{{ nameOf(result.targetId) }}」を {{ fmt(result.targetQty) }} 個にするには、
+										あと <strong class="num">{{ fmt(result.targetRow.net) }}</strong> 個
+										{{ result.targetRow.craftable ? '作成' : '入手' }}が必要です。
+									</template>
+									<template v-else>
+										「{{ nameOf(result.targetId) }}」は目標数量をすでに所持しています。追加で必要な素材はありません。
+									</template>
+								</div>
+
+								<v-alert v-if="result.unknownRecipes.length" type="info" variant="tonal" density="compact" class="mb-3"
+									title="レシピ調査中のアイテム">
+									<div v-for="u in result.unknownRecipes" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
+									<div class="text-caption mt-2">
+										レシピがまだ判明していないため、これらのアイテムに必要な素材は計算に含まれていません。
+									</div>
+								</v-alert>
+
+								<v-table v-if="result.rows.length" density="compact" class="result-table">
+									<thead>
+										<tr>
+											<th>アイテム</th>
+											<th class="kind-col">区分</th>
+											<th class="text-end">現在所持</th>
+											<th class="text-end">総所要量</th>
+											<th class="text-end">必要数</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr v-for="r in result.rows" :key="r.id"
+											:class="{ 'row-done': r.net === 0, 'section-break': r.sectionStart }">
+											<td>
+												{{ nameOf(r.id) }}
+												<span class="kind-inline"><v-chip size="x-small" label variant="tonal" :color="kindColor(r)">{{ kindLabel(r) }}</v-chip></span>
+											</td>
+											<td class="kind-col"><v-chip size="x-small" label variant="tonal" :color="kindColor(r)">{{ kindLabel(r) }}</v-chip></td>
+											<td class="text-end num">{{ fmt(r.stock) }}</td>
+											<td class="text-end num">{{ fmt(r.gross) }}</td>
+											<td class="text-end num need">{{ fmt(r.net) }}</td>
+										</tr>
+									</tbody>
+								</v-table>
+								<p class="note mt-3 mb-0">
+									総所要量は、上位のアイテムの「必要数」にBOMの数量を掛けて合計した値です。
+									中間品は所持数を差し引いた分だけ材料に展開しています。
+								</p>
+							</template>
+						</v-card-text>
+					</v-card>
+
+					<!-- 推奨アドレス -->
+					<v-card border flat>
+						<v-card-title class="section-title pt-4">推奨マップ</v-card-title>
+						<v-card-text>
+							<v-alert type="info" variant="tonal" density="compact" class="mb-4" icon="mdi-information-outline">
+								<div class="pre-line text-body-2">{{ priorityExplanation }}</div>
+							</v-alert>
+
+							<div v-if="!result" class="muted">計算すると、不足している素材を狙えるマップを表示します。</div>
+							<template v-else>
+								<v-alert v-if="result.unreachable.length" type="info" variant="tonal" density="compact" class="mb-4"
+									title="入手できるマップが未登録のアイテム">
+									<div v-for="u in result.unreachable" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
+									<div class="text-caption mt-2">
+										これらのアイテムは、入手できるマップがまだ登録されていないため、推奨マップには含まれていません。
+									</div>
+								</v-alert>
+
+								<div v-if="!result.shortages.length" class="muted">
+									{{ result.unknownRecipes.length ? 'レシピ調査中のアイテムを除き、不足している素材はありません。' : '不足している素材はありません。' }}
+								</div>
+								<div v-else-if="!result.ranking.length" class="muted">不足している素材を取得できるマップがありません。</div>
+								<template v-else>
+									<v-table density="compact" class="addr-table">
+										<thead>
+											<tr>
+												<th class="text-end" style="width:4.5em">優先度</th>
+												<th>マップ</th>
+												<th>狙える不足アイテム</th>
+												<th class="text-end">スコア</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr v-for="a in result.ranking" :key="a.code">
+												<td class="text-end rank num">{{ a.rank }}<span v-if="a.tied" class="tie">同順位</span></td>
+												<td>
+													<div class="addr-code">{{ a.code }}</div>
+													<div class="addr-name">{{ a.name }}</div>
+												</td>
+												<td>
+													<div class="chips">
+														<v-chip v-for="t in a.targets" :key="t.id" size="small" label
+															:color="t.addressCount === 1 ? 'accent' : undefined"
+															:variant="t.addressCount === 1 ? 'flat' : 'tonal'">
+															{{ nameOf(t.id) }} あと{{ fmt(t.need) }}個<span v-if="t.addressCount === 1" class="only-mark">ここだけ</span>
+														</v-chip>
+													</div>
+												</td>
+												<td class="text-end">
+													<div class="score num">{{ a.scores.total.toFixed(2) }}</div>
+													<div class="breakdown num">{{ a.scores.coverage }}種類 / 不足 {{ a.scores.need.toFixed(2) }} / 希少 {{ a.scores.rarity.toFixed(2) }}</div>
+												</td>
+											</tr>
+										</tbody>
+									</v-table>
+									<p class="note mt-3 mb-0">
+										「ここだけ」が表示された場合は、そのアイテムを取得できるマップが1か所しか登録されていません。そこを回るしかない状態か、マップデータが不足している場合があります。<br>
+										スコア = 種類数 × {{ weights.coverage }} + 不足 × {{ weights.need }} + 希少 × {{ weights.rarity }}。
+										「不足」は各アイテムの必要数を、不足アイテム全体の最大値で割って合計した値、
+										「希少」は各アイテムの取得可能マップ数の逆数の合計です。
+									</p>
+								</template>
+							</template>
+						</v-card-text>
+					</v-card>
+				</v-col>
+			</v-row>
+		</v-container>
+	</v-main>
+
+	<v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="5000" location="bottom">
+		<span class="pre-line">{{ snackbar.text }}</span>
+	</v-snackbar>
+</v-app>
+</script>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://unpkg.com/vue@3.5.43/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.js"></script>
+
+<!-- ===================================================================
+     計算ロジック（DOM・Vue・localStorage に依存しない純粋な処理のみ）
+     =================================================================== -->
+<script id="calc-logic">
+const PuzCalc = (() => {
+	'use strict';
+
+	// ---------------------------------------------------------------
+	// 定数
+	// ---------------------------------------------------------------
+
+	/**
+	 * アドレス評価の重み。順位の付け方を変えたいときはここだけを変更する。
+	 *   coverage : 同時に狙える不足アイテムの種類数
+	 *   need     : 不足数の大きさ（不足アイテム全体の最大不足数で正規化）
+	 *   rarity   : 取得できる場所の少なさ（取得可能アドレス数の逆数）
+	 */
+	const SCORE_WEIGHTS = Object.freeze({
+		coverage: 1.0,
+		need: 0.5,
+		rarity: 1.0,
+	});
+
+	/** 同順位判定の丸め桁（浮動小数点の誤差で順位差が付かないようにする） */
+	const SCORE_ROUNDING = 1e6;
+
+	// ---------------------------------------------------------------
+	// 汎用ヘルパー
+	// ---------------------------------------------------------------
+
+	const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+	const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+	/** BOM上の子アイテムID一覧（不正な形式なら空配列） */
+	function childIdsOf(bom, id) {
+		return hasOwn(bom, id) && isPlainObject(bom[id]) ? Object.keys(bom[id]) : [];
+	}
+
+	/** BOMに登録されている（=中間品・作成品である）か。レシピが空（調査中）でも true */
+	function isCraftable(bom, id) {
+		return hasOwn(bom, id) && isPlainObject(bom[id]);
+	}
+
+	/** レシピ（材料）が判明しているか。bom.json で {} と書かれた作成品は「調査中」として false */
+	function hasKnownRecipe(bom, id) {
+		return isCraftable(bom, id) && Object.keys(bom[id]).length > 0;
+	}
+
+	// ---------------------------------------------------------------
+	// アイテムマスタ
+	// ---------------------------------------------------------------
+
+	/** アイテムマスタの検証 */
+	function validateItemMaster(items) {
+		const errors = [];
+		const warnings = [];
+		if (!Array.isArray(items)) {
+			errors.push('item.json: アイテムマスタが配列ではありません。');
+			return { errors, warnings };
+		}
+		const seen = new Set();
+		const duplicated = new Set();
+		const emptyText = [];
+		items.forEach((it, i) => {
+			const pos = `item.json の ${i + 1} 番目の要素`;
+			if (!isPlainObject(it)) {
+				errors.push(`${pos}: オブジェクトではありません。`);
+				return;
+			}
+			const idOk = hasOwn(it, 'id') && typeof it.id === 'string' && it.id !== '';
+			if (!hasOwn(it, 'id')) errors.push(`${pos}: id がありません。`);
+			else if (!idOk) errors.push(`${pos}: id が空でない文字列ではありません。`);
+			if (!hasOwn(it, 'text')) errors.push(`${pos}: text がありません。`);
+			else if (typeof it.text !== 'string') errors.push(`${pos}: text が文字列ではありません。`);
+
+			if (idOk) {
+				if (seen.has(it.id)) duplicated.add(it.id);
+				seen.add(it.id);
+				if (typeof it.text === 'string' && it.text.trim() === '') emptyText.push(it.id);
+			}
+		});
+		if (duplicated.size) {
+			errors.push(`item.json: アイテムIDが重複しています:\n${[...duplicated].join('\n')}`);
+		}
+		if (emptyText.length) {
+			warnings.push(`item.json: 名称（text）が空のアイテムがあります。目標の選択肢と所持数の一覧には表示しません:\n${emptyText.join('\n')}`);
+		}
+		return { errors, warnings };
+	}
+
+	/** アイテムID → アイテム名 のインデックスを作成 */
+	function buildItemNameMap(items) {
+		return new Map(items.map((it) => [it.id, it.text]));
+	}
+
+	/** アイテムID → アイテムマスタ上の並び順 のインデックスを作成（表示順・決定的な処理順に使用） */
+	function buildItemOrderMap(items) {
+		return new Map(items.map((it, i) => [it.id, i]));
+	}
+
+	// ---------------------------------------------------------------
+	// BOM
+	// ---------------------------------------------------------------
+
+	/**
+	 * BOMの循環参照を検出する（再帰を使わない反復DFS）。
+	 * 循環があれば [a, b, c, a] のような経路を返し、なければ null を返す。
+	 */
+	function detectBomCycle(bom) {
+		const VISITING = 1;
+		const DONE = 2;
+		const state = new Map();
+		for (const start of Object.keys(bom)) {
+			if (state.has(start)) continue;
+			// スタックの各要素: [アイテムID, 子アイテムID一覧, 次に調べる子の位置]
+			const stack = [[start, childIdsOf(bom, start), 0]];
+			state.set(start, VISITING);
+			while (stack.length) {
+				const frame = stack[stack.length - 1];
+				const [node, children] = frame;
+				if (frame[2] < children.length) {
+					const child = children[frame[2]++];
+					const s = state.get(child);
+					if (s === VISITING) {
+						// 探索中の経路上に戻ってきた = 循環
+						const path = stack.map((f) => f[0]);
+						return path.slice(path.indexOf(child)).concat(child);
+					}
+					if (s === undefined) {
+						state.set(child, VISITING);
+						stack.push([child, childIdsOf(bom, child), 0]);
+					}
+				} else {
+					state.set(node, DONE);
+					stack.pop();
+				}
+			}
+		}
+		return null;
+	}
+
+	/** BOM表の検証 */
+	function validateBom(bom, nameMap) {
+		const errors = [];
+		const warnings = [];
+		const label = (id) => (nameMap.get(id) ? `${nameMap.get(id)}` : id);
+
+		if (!isPlainObject(bom)) {
+			errors.push('bom.json: BOM表がオブジェクトではありません。');
+			return { errors, warnings };
+		}
+		const unknownIds = new Set();
+		const nonInteger = [];
+		for (const [parent, children] of Object.entries(bom)) {
+			if (!nameMap.has(parent)) unknownIds.add(parent);
+			if (!isPlainObject(children)) {
+				errors.push(`bom.json: 「${label(parent)}」の子アイテム一覧がオブジェクトではありません。`);
+				continue;
+			}
+			const entries = Object.entries(children); // 空（{}）は「調査中」として正常扱い
+			for (const [child, qty] of entries) {
+				if (!nameMap.has(child)) unknownIds.add(child);
+				if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) {
+					errors.push(`bom.json: 「${label(parent)}」→「${label(child)}」の数量が不正です（${JSON.stringify(qty)}）。0より大きい数値にしてください。`);
+				} else if (!Number.isInteger(qty)) {
+					nonInteger.push(`${label(parent)} → ${label(child)}: ${qty}`);
+				}
+			}
+		}
+		if (unknownIds.size) {
+			errors.push(`bom.json: アイテムマスタに存在しないIDがあります:\n${[...unknownIds].join('\n')}`);
+		}
+		const cycle = detectBomCycle(bom);
+		if (cycle) {
+			errors.push(`bom.json: BOMに循環参照があります:\n${cycle.map(label).join(' → ')}`);
+		}
+		if (nonInteger.length) {
+			warnings.push(`bom.json: 数量が整数ではない箇所があります（計算は小数のまま行います）:\n${nonInteger.join('\n')}`);
+		}
+		return { errors, warnings };
+	}
+
+	/**
+	 * BOMのトポロジカルソート（Kahn法）。親が必ず子より前に並ぶ。
+	 * 同じ段階のアイテムはアイテムマスタ順に並べ、結果を決定的にする。
+	 * 循環がある場合は例外を投げる（事前に detectBomCycle で弾いている前提）。
+	 */
+	function topologicalSort(bom, orderMap) {
+		const nodes = new Set();
+		const indegree = new Map();
+		for (const parent of Object.keys(bom)) {
+			nodes.add(parent);
+			for (const child of childIdsOf(bom, parent)) {
+				nodes.add(child);
+				indegree.set(child, (indegree.get(child) || 0) + 1);
+			}
+		}
+		const rank = (id) => (orderMap.has(id) ? orderMap.get(id) : Number.MAX_SAFE_INTEGER);
+		const byMasterOrder = (a, b) => rank(a) - rank(b);
+		const ready = [...nodes].filter((id) => !indegree.get(id)).sort(byMasterOrder);
+		const order = [];
+		while (ready.length) {
+			const id = ready.shift();
+			order.push(id);
+			let added = false;
+			for (const child of childIdsOf(bom, id)) {
+				const d = indegree.get(child) - 1;
+				indegree.set(child, d);
+				if (d === 0) { ready.push(child); added = true; }
+			}
+			if (added) ready.sort(byMasterOrder);
+		}
+		if (order.length !== nodes.size) {
+			throw new Error('BOMに循環参照があるため、並べ替えできません。');
+		}
+		return order;
+	}
+
+	/** 目標アイテムからBOMをたどって到達できるアイテムの集合 */
+	function collectReachable(bom, targetId) {
+		const seen = new Set([targetId]);
+		const stack = [targetId];
+		while (stack.length) {
+			const id = stack.pop();
+			for (const child of childIdsOf(bom, id)) {
+				if (!seen.has(child)) { seen.add(child); stack.push(child); }
+			}
+		}
+		return seen;
+	}
+
+	/** 正味所要量 = max(0, 総所要量 - 現在所持数) */
+	function calculateNetRequirement(gross, stock) {
+		return Math.max(0, gross - stock);
+	}
+
+	/**
+	 * BOMの所要量計算（決定論的・厳密）。
+	 * トポロジカル順（親→子）に処理するため、あるアイテムを処理する時点で
+	 * すべての経路からの需要が合算済みになっており、在庫は1回だけ差し引かれる。
+	 * 中間品は「正味所要量」の分だけ下位へ展開する。
+	 *
+	 * 戻り値: [{ id, kind, craftable, recipeKnown, gross, stock, net }]（トポロジカル順）
+	 *   kind: 'target' | 'intermediate' | 'terminal'
+	 *   recipeKnown: 作成品のうちレシピが判明しているか（調査中の作成品は材料に展開しない）
+	 */
+	function calculateRequirements({ bom, topoOrder, targetId, targetQty, inventory }) {
+		const stockOf = (id) => {
+			const v = inventory && hasOwn(inventory, id) ? inventory[id] : 0;
+			return Number.isFinite(v) && v > 0 ? v : 0;
+		};
+		const reachable = collectReachable(bom, targetId);
+		const order = topoOrder.filter((id) => reachable.has(id));
+		if (!order.includes(targetId)) order.unshift(targetId); // BOMに一切登場しないアイテムを目標にした場合
+
+		const gross = new Map([[targetId, targetQty]]);
+		const rows = [];
+		for (const id of order) {
+			const g = gross.get(id) || 0;
+			if (g <= 0 && id !== targetId) continue; // 需要が発生しなかったアイテムは表示しない
+			const craftable = isCraftable(bom, id);
+			const stock = stockOf(id);
+			const net = calculateNetRequirement(g, stock);
+			rows.push({
+				id,
+				kind: id === targetId ? 'target' : (craftable ? 'intermediate' : 'terminal'),
+				craftable,
+				recipeKnown: hasKnownRecipe(bom, id),
+				gross: g,
+				stock,
+				net,
+			});
+			if (craftable && net > 0) {
+				for (const [child, qty] of Object.entries(bom[id])) {
+					gross.set(child, (gross.get(child) || 0) + net * qty);
+				}
+			}
+		}
+		return rows;
+	}
+
+	/**
+	 * 計算結果の表示順を決める。
+	 *   1. 目標アイテム
+	 *   2. 目標の直接の材料（bom.json に書かれた順。中間品・素材の区別なく、ゲームの表示と同じ並び）
+	 *   3. さらに分解して出てきたアイテム（item.json に書かれた順）
+	 */
+	function sortRequirementRows(rows, bom, targetId, orderMap) {
+		const directChildren = childIdsOf(bom, targetId);
+		const directIndex = new Map(directChildren.map((id, i) => [id, i]));
+		const groupOf = (id) => (id === targetId ? 0 : directIndex.has(id) ? 1 : 2);
+		const masterRank = (id) => (orderMap.has(id) ? orderMap.get(id) : Number.MAX_SAFE_INTEGER);
+		const SECTION = ['target', 'direct', 'expanded'];
+		const sorted = [...rows].sort((a, b) => {
+			const ga = groupOf(a.id);
+			const gb = groupOf(b.id);
+			if (ga !== gb) return ga - gb;
+			if (ga === 1) return directIndex.get(a.id) - directIndex.get(b.id);
+			return masterRank(a.id) - masterRank(b.id);
+		});
+		// section: 表示上の区切り（target=目標 / direct=bom.json記載の材料 / expanded=分解して出てきたアイテム）
+		// sectionStart: 直前の行と区切りが変わる最初の行か（境界線の描画に使う）
+		return sorted.map((r, i) => {
+			const section = SECTION[groupOf(r.id)];
+			const prev = i > 0 ? SECTION[groupOf(sorted[i - 1].id)] : null;
+			return { ...r, section, sectionStart: prev !== null && prev !== section };
+		});
+	}
+
+	/**
+	 * 不足アイテムの抽出。
+	 * アドレスで集める対象は「BOMでこれ以上展開しないアイテム（末端品）」の不足分のみ。
+	 * 中間品の不足は材料へ展開済みなので、ここでは重複して数えない。
+	 */
+	function extractShortages(rows) {
+		return rows
+			.filter((r) => r.net > 0 && !r.craftable)
+			.map((r) => ({ id: r.id, need: r.net }));
+	}
+
+	/**
+	 * 調査中のため材料を計算できない作成品（不足分があるもの）の抽出。
+	 * これらはマップで集める対象でもないため、推奨マップにも含まれない。
+	 */
+	function extractUnknownRecipes(rows) {
+		return rows
+			.filter((r) => r.net > 0 && r.craftable && !r.recipeKnown)
+			.map((r) => ({ id: r.id, need: r.net }));
+	}
+
+	// ---------------------------------------------------------------
+	// アドレス表
+	// ---------------------------------------------------------------
+
+	/**
+	 * アドレス表の検証と正規化。
+	 * 値は { name, drop: [...] } 形式、またはアイテムID配列のみの形式を受け付ける。
+	 * 同一アドレス内の重複IDは除去する。
+	 * 戻り値の table は { アドレス: { name, drop: [重複なしのアイテムID] } }（元の並び順を保持）。
+	 */
+	function validateAddressTable(map, nameMap) {
+		const errors = [];
+		const warnings = [];
+		const table = {};
+		if (!isPlainObject(map)) {
+			errors.push('map.json: マップ表がオブジェクトではありません。');
+			return { errors, warnings, table };
+		}
+		const unknownIds = new Set();
+		const dedupedAddresses = [];
+		for (const [code, value] of Object.entries(map)) {
+			let name = '';
+			let drop;
+			if (Array.isArray(value)) {
+				drop = value;
+			} else if (isPlainObject(value) && Array.isArray(value.drop)) {
+				drop = value.drop;
+				if (hasOwn(value, 'name')) {
+					if (typeof value.name === 'string') name = value.name;
+					else errors.push(`map.json: マップ「${code}」の name が文字列ではありません。`);
+				}
+			} else {
+				errors.push(`map.json: マップ「${code}」の取得アイテム一覧（drop）が配列ではありません。`);
+				continue;
+			}
+			const unique = [];
+			const seen = new Set();
+			let hadDuplicate = false;
+			for (const id of drop) {
+				if (typeof id !== 'string') {
+					errors.push(`map.json: マップ「${code}」に文字列ではないアイテムIDがあります（${JSON.stringify(id)}）。`);
+					continue;
+				}
+				if (!nameMap.has(id)) unknownIds.add(id);
+				if (seen.has(id)) { hadDuplicate = true; continue; }
+				seen.add(id);
+				unique.push(id);
+			}
+			if (hadDuplicate) dedupedAddresses.push(code);
+			table[code] = { name, drop: unique };
+		}
+		if (unknownIds.size) {
+			errors.push(`map.json: アイテムマスタに存在しないIDがあります:\n${[...unknownIds].join('\n')}`);
+		}
+		if (dedupedAddresses.length) {
+			warnings.push(`map.json: 同じマップ内で重複していたアイテムIDを1つにまとめました:\n${dedupedAddresses.join('\n')}`);
+		}
+		return { errors, warnings, table };
+	}
+
+	/** アイテムID → そのアイテムを取得できるアドレス数 を集計 */
+	function buildItemAddressCounts(table) {
+		const counts = new Map();
+		for (const entry of Object.values(table)) {
+			for (const id of entry.drop) counts.set(id, (counts.get(id) || 0) + 1);
+		}
+		return counts;
+	}
+
+	/** 不足しているが、どのアドレスからも取得できないアイテム */
+	function findUnreachableShortages(shortages, addressCounts) {
+		return shortages.filter((s) => !addressCounts.get(s.id));
+	}
+
+	// ---------------------------------------------------------------
+	// アドレス推薦（ヒューリスティック。取得確率は一切使わない）
+	// ---------------------------------------------------------------
+
+	/**
+	 * 1アドレスのスコア計算。
+	 * targets: そのアドレスで狙える不足アイテム [{ id, need, addressCount }]
+	 * maxNeed: 不足アイテム全体の中での最大不足数（正規化用）
+	 */
+	function calculateAddressScore(targets, maxNeed, weights = SCORE_WEIGHTS) {
+		const coverage = targets.length;
+		const need = targets.reduce((sum, t) => sum + (maxNeed > 0 ? t.need / maxNeed : 0), 0);
+		const rarity = targets.reduce((sum, t) => sum + (t.addressCount > 0 ? 1 / t.addressCount : 0), 0);
+		const total = weights.coverage * coverage + weights.need * need + weights.rarity * rarity;
+		return { coverage, need, rarity, total };
+	}
+
+	/**
+	 * 全アドレスのスコア計算。
+	 * 不足数0のアイテムは評価に含めず、不足アイテムを1つも狙えないアドレスは結果から除外する。
+	 */
+	function calculateAddressScores({ table, shortages, addressCounts, orderMap, weights = SCORE_WEIGHTS }) {
+		const needMap = new Map(shortages.map((s) => [s.id, s.need]));
+		const maxNeed = shortages.reduce((m, s) => Math.max(m, s.need), 0);
+		const rank = (id) => (orderMap && orderMap.has(id) ? orderMap.get(id) : Number.MAX_SAFE_INTEGER);
+		const results = [];
+		Object.entries(table).forEach(([code, entry], index) => {
+			const targets = entry.drop
+				.filter((id) => needMap.has(id))
+				.map((id) => ({ id, need: needMap.get(id), addressCount: addressCounts.get(id) || 0 }));
+			if (!targets.length) return;
+			// 表示順: 取得場所の少ないアイテムを先に、同じならアイテムマスタ順
+			targets.sort((a, b) => a.addressCount - b.addressCount || rank(a.id) - rank(b.id));
+			results.push({
+				code,
+				name: entry.name,
+				index,
+				targets,
+				scores: calculateAddressScore(targets, maxNeed, weights),
+			});
+		});
+		return results;
+	}
+
+	/**
+	 * スコアの高い順に並べ、順位を付ける。
+	 * スコアが同じアドレスは同順位（1, 1, 3 … の形式）とし、無理に差を付けない。
+	 * 同順位内の並びはアドレス表の記載順。
+	 */
+	function rankAddresses(scored) {
+		const keyOf = (a) => Math.round(a.scores.total * SCORE_ROUNDING);
+		const sorted = [...scored].sort((a, b) => keyOf(b) - keyOf(a) || a.index - b.index);
+		const keyCount = new Map();
+		for (const a of sorted) keyCount.set(keyOf(a), (keyCount.get(keyOf(a)) || 0) + 1);
+		let prevKey = null;
+		let prevRank = 0;
+		return sorted.map((a, i) => {
+			const key = keyOf(a);
+			const rank = key === prevKey ? prevRank : i + 1;
+			prevKey = key;
+			prevRank = rank;
+			return { ...a, rank, tied: keyCount.get(key) > 1 };
+		});
+	}
+
+	// ---------------------------------------------------------------
+	// 所持数データ
+	// ---------------------------------------------------------------
+
+	/**
+	 * 保存済み所持数の整理。
+	 * valid : アイテムマスタに存在するIDの、0以上の整数値のみ（計算に使用）
+	 * extras: アイテムマスタに存在しないID（計算には使わないが、保存データからは消さずに残す）
+	 */
+	function sanitizeInventory(raw, nameMap) {
+		const valid = {};
+		const extras = {};
+		if (!isPlainObject(raw)) return { valid, extras };
+		for (const [id, v] of Object.entries(raw)) {
+			if (!nameMap.has(id)) { extras[id] = v; continue; }
+			if (Number.isSafeInteger(v) && v >= 0) valid[id] = v;
+		}
+		return { valid, extras };
+	}
+
+	return {
+		SCORE_WEIGHTS,
+		validateItemMaster,
+		buildItemNameMap,
+		buildItemOrderMap,
+		validateBom,
+		detectBomCycle,
+		topologicalSort,
+		collectReachable,
+		calculateNetRequirement,
+		calculateRequirements,
+		sortRequirementRows,
+		extractShortages,
+		validateAddressTable,
+		buildItemAddressCounts,
+		findUnreachableShortages,
+		calculateAddressScore,
+		calculateAddressScores,
+		rankAddresses,
+		sanitizeInventory,
+		isCraftable,
+		hasKnownRecipe,
+		extractUnknownRecipes,
+	};
+})();
+
+// Node.js からテストするための書き出し（ブラウザでは何もしない）
+if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
+</script>
+
+<!-- ===================================================================
+     データ読み込み・保存・画面（UI）
+     =================================================================== -->
+<script>
+(() => {
+	'use strict';
+
+	// ---------------------------------------------------------------
+	// 定数
+	// ---------------------------------------------------------------
+
+	/** 事前データ（calc.html からの相対パス） */
+	const DATA_FILES = Object.freeze({
+		items: 'data/item.json',
+		bom: 'data/bom.json',
+		map: 'data/map.json',
+	});
+
+	/** 所持数を保存する localStorage のキー */
+	const STORAGE_KEY = 'toupuzCalc.itemInventory';
+
+	/** アドレス優先度の説明文 */
+	const PRIORITY_EXPLANATION =
+		'この優先度は取得確率を表すものではありません。\n' +
+		'現在不足しているアイテムのうち、複数種類を同時に狙えること、不足数量、取得可能な場所の少なさをもとに計算した優先度です。';
+
+	const REPORT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxKIBuPLyoC6jIKFFY24brWgw3gHNXfiEK4uS5QJnS-G8awfbBmd8AR_buZnzZQj7Un/exec';
+
+	/** 報告の種別（報告ダイアログの選択肢）。GAS 側の CONFIG.TYPES と必ず揃える */
+	const REPORT_TYPES = Object.freeze(['アイテム', 'レシピ', 'その他']);
+
+	/** 報告の最大文字数。GAS 側の CONFIG.MAX_TITLE / MAX_BODY と揃える */
+	const REPORT_LIMITS = Object.freeze({ title: 100, body: 2000 });
+
+	/** 報告送信の待ち時間の上限（ミリ秒） */
+	const REPORT_TIMEOUT_MS = 20000;
+
+	/**
+	 * 日時を「2026/09/29(火) 17:58:23」の形式にする（閲覧者の端末の時刻で表示）。
+	 * 日時として解釈できない場合は空文字を返す。
+	 */
+	function formatDateTime(date) {
+		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+		const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+		const pad = (n) => String(n).padStart(2, '0');
+		return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}` +
+			`(${WEEKDAYS[date.getDay()]}) ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+	}
+
+	/** 非負整数の入力か */
+	const isNonNegativeIntegerText = (text) => /^\d+$/.test(text) && Number.isSafeInteger(Number(text));
+
+	// ---------------------------------------------------------------
+	// データ読み込み（jQuery）
+	// ---------------------------------------------------------------
+
+	/** JSONを相対パスで読み込む */
+	function loadJson(path) {
+		return new Promise((resolve, reject) => {
+			$.ajax({ url: path, dataType: 'json', cache: false })
+				.done((data) => resolve(data))
+				.fail((xhr, status) => {
+					const detail = status === 'parsererror'
+						? 'JSONの書式が正しくありません'
+						: `読み込めませんでした${xhr.status ? `（HTTP ${xhr.status}）` : ''}`;
+					reject(new Error(`${path}: ${detail}。`));
+				});
+		});
+	}
+
+	// ---------------------------------------------------------------
+	// 報告の送信（GAS ウェブアプリ）
+	// ---------------------------------------------------------------
+
+	/**
+	 * 報告を GAS に送信し、{ ok, code, message } を返す（例外は投げない）。
+	 * Content-Type を指定せずに文字列を送る（text/plain 扱い）ことで、
+	 * 別ドメインへの送信時に事前確認（preflight）が発生せず、GAS でも受け取れる。
+	 */
+	async function postReport(payload) {
+		if (!REPORT_ENDPOINT) return { ok: false, code: 'endpoint_not_set' };
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), REPORT_TIMEOUT_MS);
+		try {
+			const res = await fetch(REPORT_ENDPOINT, {
+				method: 'POST',
+				body: JSON.stringify(payload),
+				signal: controller.signal,
+			});
+			if (!res.ok) return { ok: false, code: `http_${res.status}` };
+			let data;
+			try {
+				data = await res.json();
+			} catch (e) {
+				return { ok: false, code: 'bad_response' };  // JSON以外（GASのエラーページ等）が返ってきた
+			}
+			if (!data || typeof data !== 'object') return { ok: false, code: 'bad_response' };
+			return { ok: data.ok === true, code: String(data.code || ''), message: String(data.message || '') };
+		} catch (e) {
+			return { ok: false, code: e && e.name === 'AbortError' ? 'timeout' : 'network_error' };
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	// ---------------------------------------------------------------
+	// 所持数の保存・復元（localStorage）
+	// ---------------------------------------------------------------
+
+	/** 所持数を復元する。壊れたデータや存在しないIDは計算に使わない */
+	function loadInventory(nameMap) {
+		let raw = null;
+		try {
+			const text = window.localStorage.getItem(STORAGE_KEY);
+			raw = text ? JSON.parse(text) : null;
+		} catch (e) {
+			raw = null;
+		}
+		return PuzCalc.sanitizeInventory(raw, nameMap);
+	}
+
+	/** 所持数を保存する。アイテムマスタにない古いIDの値も消さずに書き戻す */
+	function saveInventory(inventory, extras) {
+		try {
+			window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...extras, ...inventory }));
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------
+	// Vue アプリ
+	// ---------------------------------------------------------------
+
+	const { createApp, ref, reactive, computed, shallowRef, onMounted, nextTick } = Vue;
+
+	const app = createApp({
+		template: '#app-template',
+		setup() {
+			// ----- 状態 -----
+			const loading = ref(true);
+			const ready = ref(false);
+			const dataErrors = ref([]);   // 計算できなくなるデータの問題（詳細はコンソールに出力）
+
+			// マスタ類（読み込み後は変更しないので非リアクティブに保持）
+			const master = shallowRef({
+				items: [],               // 画面に出すアイテム（名称が空のものは除く）
+				nameMap: new Map(),      // アイテムID → アイテム名
+				orderMap: new Map(),     // アイテムID → アイテムマスタ順
+				bom: {},
+				topoOrder: [],
+				addressTable: {},
+				addressCounts: new Map(),
+			});
+
+			const targetId = ref('');
+			const targetQtyInput = ref('1');
+			const inventory = reactive({});        // アイテムID → 所持数（保存済みの確定値）
+			const inventoryInputs = reactive({});  // アイテムID → 入力欄の文字列
+			let inventoryExtras = {};              // アイテムマスタにない古いID（保存時に残すだけ）
+
+			const inventorySearch = ref('');
+			const inventoryFilter = ref('all');
+			const result = shallowRef(null);
+			const snackbar = reactive({ show: false, text: '', color: 'error' });
+
+			// about ダイアログ
+			const dialogAbout = reactive({
+				isShow: false,
+				persistent: false,
+				title: 'About',
+				subtitle: '',
+			});
+
+			// about ダイアログの最終更新日時（画面を読み込んだ時点の document.lastModified）
+			const lastModified = formatDateTime(new Date(document.lastModified));
+
+			// 報告ダイアログ
+			const dialogReport = reactive({
+				isShow: false,
+				persistent: false,
+				title: '報告',
+			});
+			// 報告フォームの入力内容（ダイアログを閉じても、送信するまでは入力を残す）
+			const reportForm = reactive({
+				type: null,   // 種別（REPORT_TYPES のいずれか）
+				title: '',    // タイトル（1行）
+				body: '',     // 本文（複数行）
+			});
+
+			/**
+			 * 報告を送信できるか。
+			 * 種別は必須、タイトルか本文の少なくとも一方に入力が必要。
+			 * 空白だけの入力や、消去ボタン（×）で値なし（null）になった欄は未入力として扱う。
+			 */
+			const hasText = (v) => typeof v === 'string' && v.trim() !== '';
+			const reportSending = ref(false);  // 送信中（二重送信防止・入力欄の無効化に使う）
+			const canSubmitReport = computed(() =>
+				!reportSending.value &&
+				REPORT_TYPES.includes(reportForm.type) && (hasText(reportForm.title) || hasText(reportForm.body)));
+
+			/** 報告の送信: 成功したら入力を消してダイアログを閉じる。失敗したら入力を残したまま知らせる */
+			async function onReportSubmit() {
+				if (!canSubmitReport.value) return;
+				reportSending.value = true;
+				try {
+					const res = await postReport({
+						type: reportForm.type,
+						title: hasText(reportForm.title) ? reportForm.title : '',
+						body: hasText(reportForm.body) ? reportForm.body : '',
+					});
+					if (res.ok) {
+						showSnack(res.message || '報告を受け付けました。', 'success');
+						reportForm.type = null;
+						reportForm.title = '';
+						reportForm.body = '';
+						dialogReport.isShow = false;
+					} else {
+						// 利用者にはざっくり表示し、原因（エラーコード）は開発者ツールのコンソールにだけ出す
+						console.warn('[報告] 送信に失敗しました:', res.code);
+						showSnack('エラーが発生しました');
+					}
+				} finally {
+					reportSending.value = false;
+				}
+			}
+
+			// ----- 表示用ヘルパー -----
+			const nameOf = (id) => {
+				const text = master.value.nameMap.get(id);
+				return text && text.trim() ? text : '（名称未設定）';
+			};
+			const fmt = (n) => {
+				if (!Number.isFinite(n)) return '-';
+				const v = Number.isInteger(n) ? n : Math.round(n * 1000) / 1000;
+				return v.toLocaleString('ja-JP');
+			};
+			// 区分の表示（調査中の作成品は「調査中」）
+			const kindLabel = (r) => (r.craftable && !r.recipeKnown && r.kind !== 'target')
+				? '調査中' : ({ target: '目標', intermediate: '中間品', terminal: '素材' }[r.kind] || '');
+			const kindColor = (r) => (r.craftable && !r.recipeKnown && r.kind !== 'target')
+				? 'grey' : ({ target: 'primary', intermediate: 'info', terminal: undefined }[r.kind]);
+			const qtyRule = (v) => {
+				const text = v == null ? '' : String(v).trim();
+				return text === '' || isNonNegativeIntegerText(text) || '0以上の整数で入力してください';
+			};
+			const showSnack = (text, color = 'error') => {
+				snackbar.text = text;
+				snackbar.color = color;
+				snackbar.show = true;
+			};
+
+			// ----- 算出プロパティ -----
+			const canCalculate = computed(() => ready.value && dataErrors.value.length === 0 && !!targetId.value);
+
+			// 目標selectの選択肢（作成品 / 素材 に分けてアイテムマスタ順）
+			const targetGroups = computed(() => {
+				const { items, bom } = master.value;
+				// pending: 調査中の作成品（選択肢には出すが選べないようにする）
+				const craftables = items.filter((it) => PuzCalc.isCraftable(bom, it.id))
+					.map((it) => ({ ...it, pending: !PuzCalc.hasKnownRecipe(bom, it.id) }));
+				const materials = items.filter((it) => !PuzCalc.isCraftable(bom, it.id));
+				return [
+					{ label: '作成品', items: craftables },
+					{ label: '素材', items: materials },
+				].filter((g) => g.items.length);
+			});
+
+			// 計算結果の「あと必要」数（所持数一覧のバッジ・絞り込み用）
+			const needMap = computed(() => new Map(result.value ? result.value.rows.map((r) => [r.id, r.net]) : []));
+			const needOf = (id) => needMap.value.get(id) || 0;
+
+			// 所持数一覧（検索・絞り込み）
+			const inventoryRows = computed(() => {
+				const keyword = (inventorySearch.value || '').trim().toLowerCase();
+				return master.value.items.filter((it) => {
+					if (keyword && !it.text.toLowerCase().includes(keyword)) return false;
+					if (inventoryFilter.value === 'nonzero') return (inventory[it.id] || 0) > 0;
+					if (inventoryFilter.value === 'short') return needOf(it.id) > 0;
+					return true;
+				});
+			});
+
+			// 計算後に入力が変わったか
+			const currentSignature = () => JSON.stringify([targetId.value, String(targetQtyInput.value ?? '').trim(), inventory]);
+			const isStale = computed(() => !!result.value && result.value.signature !== currentSignature());
+
+			// ----- 初期化 -----
+			function initialize(rawItems, rawBom, rawMap) {
+				const itemCheck = PuzCalc.validateItemMaster(rawItems);
+				const warnings = [...itemCheck.warnings];
+				if (itemCheck.errors.length) {
+					reportDataProblems(itemCheck.errors, warnings);
+					return;
+				}
+				const nameMap = PuzCalc.buildItemNameMap(rawItems);
+				const orderMap = PuzCalc.buildItemOrderMap(rawItems);
+
+				const bomCheck = PuzCalc.validateBom(rawBom, nameMap);
+				const mapCheck = PuzCalc.validateAddressTable(rawMap, nameMap);
+				const errors = [...bomCheck.errors, ...mapCheck.errors];
+				warnings.push(...bomCheck.warnings, ...mapCheck.warnings);
+
+				const bom = rawBom && typeof rawBom === 'object' && !Array.isArray(rawBom) ? rawBom : {};
+				const topoOrder = errors.length ? [] : PuzCalc.topologicalSort(bom, orderMap);
+
+				master.value = {
+					items: rawItems.filter((it) => it.text.trim() !== ''),
+					nameMap,
+					orderMap,
+					bom,
+					topoOrder,
+					addressTable: mapCheck.table,
+					addressCounts: PuzCalc.buildItemAddressCounts(mapCheck.table),
+				};
+				reportDataProblems(errors, warnings);
+
+				// 所持数の復元（保存がないアイテムは0）
+				const { valid, extras } = loadInventory(nameMap);
+				inventoryExtras = extras;
+				for (const it of rawItems) {
+					inventory[it.id] = hasValue(valid, it.id) ? valid[it.id] : 0;
+					inventoryInputs[it.id] = hasValue(valid, it.id) && valid[it.id] !== 0 ? String(valid[it.id]) : '';
+				}
+
+				// 目標の初期値: 選択できる最初のアイテム（作成品を優先）
+				const first = targetGroups.value.flatMap((g) => g.items).find((it) => !it.pending);
+				targetId.value = first ? first.id : '';
+				ready.value = true;
+			}
+			const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+			/**
+			 * データの問題の出し分け。
+			 * 利用者には対処できない内容なので、詳細は開発者向けにコンソールへ出力する。
+			 * エラー（計算不可）があるときだけ、画面には「読み込めなかった」旨を表示する。
+			 */
+			function reportDataProblems(errors, warnings) {
+				errors.forEach((msg) => console.error('[データエラー]', msg));
+				warnings.forEach((msg) => console.warn('[データの注意]', msg));
+				dataErrors.value = errors;
+			}
+
+			async function loadAll() {
+				try {
+					const [rawItems, rawBom, rawMap] = await Promise.all([
+						loadJson(DATA_FILES.items),
+						loadJson(DATA_FILES.bom),
+						loadJson(DATA_FILES.map),
+					]);
+					initialize(rawItems, rawBom, rawMap);
+				} catch (e) {
+					const hint = location.protocol === 'file:'
+						? '\nファイルを直接開いた場合、ブラウザの制限でJSONを読み込めません。Webサーバーに配置して開いてください。'
+						: '\ncalc.html と同じ場所に data フォルダ（item.json / bom.json / map.json）があるか確認してください。';
+					reportDataProblems([(e && e.message ? e.message : String(e)) + hint], []);
+				} finally {
+					loading.value = false;
+				}
+			}
+
+			// ----- イベント -----
+
+			/** 所持数の入力: 正しい値ならすぐ保存。不正な値は保存しない */
+			function onInventoryInput(id, value) {
+				const text = value == null ? '' : String(value).trim();
+				inventoryInputs[id] = text;
+				if (text === '') inventory[id] = 0;
+				else if (isNonNegativeIntegerText(text)) inventory[id] = Number(text);
+				else return;
+				if (!saveInventory({ ...inventory }, inventoryExtras)) {
+					showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+				}
+			}
+
+			/** 計算ボタン: 所要量計算 → 不足抽出 → アドレス評価 → 順位付け */
+			function onCalculate() {
+				if (!canCalculate.value) return;
+				const qtyText = String(targetQtyInput.value ?? '').trim();
+				if (!isNonNegativeIntegerText(qtyText)) {
+					showSnack('必要数量は0以上の整数で入力してください。');
+					return;
+				}
+				const invalidNames = master.value.items
+					.filter((it) => {
+						const t = String(inventoryInputs[it.id] ?? '').trim();
+						return t !== '' && !isNonNegativeIntegerText(t);
+					})
+					.map((it) => it.text);
+				if (invalidNames.length) {
+					showSnack(`所持数が正しく入力されていないアイテムがあります:\n${invalidNames.join('、')}`);
+					return;
+				}
+
+				const { bom, topoOrder, addressTable, addressCounts, orderMap } = master.value;
+				const targetQty = Number(qtyText);
+
+				// 1-2. BOM所要量と正味所要量（最新の所持数を使用）
+				const rows = PuzCalc.calculateRequirements({
+					bom, topoOrder, targetId: targetId.value, targetQty, inventory: { ...inventory },
+				});
+				// 3. 不足アイテムの抽出
+				const shortages = PuzCalc.extractShortages(rows);
+				const unreachable = PuzCalc.findUnreachableShortages(shortages, addressCounts);
+				const unknownRecipes = PuzCalc.extractUnknownRecipes(rows);
+				if (unreachable.length) {
+					// 開発者向け: どのマップにも登録がない素材（map.json への追加漏れの可能性）
+					console.warn('[データ] 入手できるマップが map.json に登録されていないアイテム:', unreachable.map((u) => nameOf(u.id)).join('、'));
+				}
+				// 4-5. アドレス評価と順位付け
+				const scored = PuzCalc.calculateAddressScores({ table: addressTable, shortages, addressCounts, orderMap });
+				const ranking = PuzCalc.rankAddresses(scored);
+
+				// 表示順: 目標 → 目標の直接の材料（bom.json の記載順）→ それ以外（item.json の記載順）
+				const sortedRows = PuzCalc.sortRequirementRows(rows, bom, targetId.value, orderMap);
+
+				result.value = {
+					targetId: targetId.value,
+					targetQty,
+					targetRow: rows.find((r) => r.id === targetId.value),
+					rows: sortedRows,
+					shortages,
+					unreachable,
+					unknownRecipes,
+					ranking,
+					signature: currentSignature(),
+				};
+
+				// スマホ幅では結果までスクロール
+				if (window.innerWidth < 960) {
+					nextTick(() => {
+						const el = document.getElementById('result-card');
+						if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+					});
+				}
+			}
+
+			onMounted(loadAll);
+
+			return {
+				loading, ready, dataErrors,
+				targetId, targetQtyInput, targetGroups, canCalculate,
+				inventoryInputs, inventorySearch, inventoryFilter, inventoryRows,
+				result, isStale, snackbar, dialogAbout, lastModified,
+				dialogReport, reportForm, reportTypes: REPORT_TYPES, reportLimits: REPORT_LIMITS,
+				reportSending, canSubmitReport, onReportSubmit,
+				weights: PuzCalc.SCORE_WEIGHTS,
+				priorityExplanation: PRIORITY_EXPLANATION,
+				nameOf, fmt, kindLabel, kindColor, qtyRule, needOf,
+				onInventoryInput, onCalculate,
+			};
+		},
+	});
+
+	// ----- テーマ（端末のライト/ダーク設定に追従） -----
+	const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+	const vuetify = Vuetify.createVuetify({
+		theme: {
+			defaultTheme: darkQuery && darkQuery.matches ? 'dark' : 'light',
+			themes: {
+				// 配色: ヘッダー=オレンジ / 背景=薄い黄色 / アクセント=黄緑（刀剣乱舞ぱずぎり公式サイトの印象に合わせる）
+				light: {
+					colors: {
+						primary: '#d9661a',      // オレンジ（ヘッダー・選択状態）
+						'on-primary': '#ffffff',
+						accent: '#8cc63f',       // 黄緑（計算ボタン・「ここだけ」）
+						'on-accent': '#1f2d0a',
+						link: '#b3500f',         // 濃いオレンジ（aタグのリンク）
+						background: '#fdf6d8',   // 薄い黄色（ページ背景）
+						surface: '#fffdf4',      // カード
+						info: '#3d7a8c',
+					},
+				},
+				dark: {
+					colors: {
+						primary: '#f0914a',
+						'on-primary': '#1d1206',
+						accent: '#a6d65f',
+						'on-accent': '#15200a',
+						link: '#f39c5a',
+						background: '#1d1a12',
+						surface: '#29251a',
+						info: '#8cc3d1',
+					},
+				},
+			},
+		},
+	});
+	if (darkQuery && darkQuery.addEventListener) {
+		darkQuery.addEventListener('change', (e) => {
+			const name = e.matches ? 'dark' : 'light';
+			if (typeof vuetify.theme.change === 'function') vuetify.theme.change(name);
+			else vuetify.theme.global.name.value = name;
+		});
+	}
+
+	app.use(vuetify).mount('#app');
+})();
+</script>
+</body>
+</html>
