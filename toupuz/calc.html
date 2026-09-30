@@ -22,23 +22,8 @@
 	ul { padding-left: 1em; }
 	.note { font-size: .8rem; line-height: 1.6; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 
-	/* ===== 目標アイテム select（ネイティブselectをVuetify風に整形） ===== */
+	/* ===== 目標設定 ===== */
 	.field-label { display: block; font-size: .8rem; margin-bottom: 4px; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
-	.select-wrap { position: relative; }
-	.native-select {
-		width: 100%; min-height: 48px; padding: 0 40px 0 14px;
-		font: inherit; font-size: 1rem;
-		color: rgb(var(--v-theme-on-surface));
-		background: rgb(var(--v-theme-surface));
-		border: 1px solid rgba(var(--v-theme-on-surface), .38);
-		border-radius: 4px;
-		appearance: none; -webkit-appearance: none;
-		cursor: pointer;
-	}
-	.native-select:hover { border-color: rgba(var(--v-theme-on-surface), .87); }
-	.native-select:focus { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: -1px; border-color: transparent; }
-	.v-theme--dark .native-select { color-scheme: dark; }
-	.select-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .7; }
 
 	/* ===== 所持数一覧 ===== */
 	.inventory-list { max-height: 560px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
@@ -72,6 +57,11 @@
 	.addr-code { font-weight: 700; white-space: nowrap; }
 	.addr-name { font-size: .8rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+	/* リリースノート: 本文は \n で改行し、長い行は折り返す */
+	.release-note__title { font-weight: 700; }
+	.release-note__body { margin-top: 4px; white-space: pre-line; overflow-wrap: anywhere; }
+	.release-note--sep { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+	.missing-note { margin-top: 6px; font-size: .78rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.only-mark { margin-left: 6px; font-size: .7rem; font-weight: 700; }
 	.score { font-weight: 700; }
 	.kind-inline { display: none; }
@@ -95,8 +85,8 @@
 		.v-app-bar-title { font-size: .85rem; }
 	}
 	@media (max-width: 599px) {
-		/* 所持数は一覧の中でスクロールさせず、ページ全体でスクロール */
-		.inventory-list { max-height: none; overflow: visible; }
+		/* 所持数: 5件と6件目の半分まで見せ、残りは一覧の中でスクロール（1行 = 約53px） */
+		.inventory-list { max-height: calc(53px * 5.5); }
 		/* 結果表: 区分列をアイテム名の下に移して4列に収める */
 		.result-table .kind-col { display: none; }
 		.kind-inline { display: block; margin-top: 2px; }
@@ -132,13 +122,51 @@
 	<v-app-bar color="primary" density="comfortable" flat>
 		<v-app-bar-title>
 			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.0</span>
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.1</span>
 		</v-app-bar-title>
 		<template v-slot:append>
-			<v-btn icon="mdi-message-draw" aria-label="報告" title="報告" @click="dialogReport.isShow = true"></v-btn>
-			<v-btn icon="mdi-information-outline" aria-label="このツールについて" @click="dialogAbout.isShow = true"></v-btn>
+			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
 		</template>
 	</v-app-bar>
+
+	<!-- メニュー（画面の右端から引き出すパネル）。項目を選ぶとパネルを閉じてから各処理を行う -->
+	<v-navigation-drawer v-model="menuOpen" location="right" temporary width="260">
+		<v-list density="comfortable" nav>
+			<v-list-item prepend-icon="mdi-tray-arrow-down" title="インポート" @click="onMenu(openImportDialog)"></v-list-item>
+			<v-list-item prepend-icon="mdi-tray-arrow-up" title="エクスポート" @click="onMenu(onExport)"></v-list-item>
+			<v-list-item prepend-icon="mdi-message-draw" title="報告" @click="onMenu(() => { dialogReport.isShow = true; })"></v-list-item>
+			<v-list-item prepend-icon="mdi-note-text-outline" title="リリースノート" @click="onMenu(() => { dialogReleaseNotes.isShow = true; })"></v-list-item>
+			<v-list-item prepend-icon="mdi-information-outline" title="このサイトについて" @click="onMenu(() => { dialogAbout.isShow = true; })"></v-list-item>
+		</v-list>
+	</v-navigation-drawer>
+
+	<!-- インポートダイアログ -->
+	<v-dialog v-model="dialogImport.isShow" max-width="600" scrollable>
+		<v-card>
+			<v-card-title class="text-center">インポート</v-card-title>
+			<v-divider></v-divider>
+			<v-card-text class="text-high-emphasis pt-3">
+				<p class="mb-1">「エクスポート」でコピーした設定を貼り付けてください。</p>
+				<p class="mb-4 text-error">インポートすると、現在の所持数はすべて上書きされます。</p>
+				<v-textarea
+					v-model="importText"
+					label="設定"
+					rows="5"
+					clearable
+					variant="outlined" density="comfortable"
+					hide-details
+				></v-textarea>
+			</v-card-text>
+			<v-divider></v-divider>
+			<v-card-actions>
+				<v-spacer></v-spacer>
+				<v-btn variant="flat" color="grey" prepend-icon="mdi-close" @click="dialogImport.isShow = false">キャンセル</v-btn>
+				<v-spacer></v-spacer>
+				<v-btn variant="flat" color="accent" prepend-icon="mdi-tray-arrow-down" :disabled="!hasText(importText)" @click="onImport">インポート</v-btn>
+				<v-spacer></v-spacer>
+			</v-card-actions>
+		</v-card>
+	</v-dialog>
 
 	<!-- 報告ダイアログ -->
 	<v-dialog v-model="dialogReport.isShow" :persistent="dialogReport.persistent" max-width="600" scrollable>
@@ -187,6 +215,26 @@
 		</v-card>
 	</v-dialog>
 
+	<!-- リリースノートダイアログ -->
+	<v-dialog v-model="dialogReleaseNotes.isShow" max-width="600" scrollable>
+		<v-card>
+			<v-card-title class="text-center">リリースノート</v-card-title>
+			<v-divider></v-divider>
+			<v-card-text class="text-high-emphasis pt-3">
+				<div v-for="(note, i) in releaseNotes" :key="i" class="release-note" :class="{ 'mt-4 pt-4 release-note--sep': i > 0 }">
+					<div class="release-note__title">{{ note.title }}</div>
+					<div class="release-note__body">{{ note.body }}</div>
+				</div>
+			</v-card-text>
+			<v-divider></v-divider>
+			<v-card-actions>
+				<v-spacer></v-spacer>
+				<v-btn variant="text" @click="dialogReleaseNotes.isShow = false">閉じる</v-btn>
+				<v-spacer></v-spacer>
+			</v-card-actions>
+		</v-card>
+	</v-dialog>
+
 	<!-- about ダイアログ -->
 	<v-dialog v-model="dialogAbout.isShow" :persistent="dialogAbout.persistent" max-width="600" scrollable>
 		<v-card>
@@ -226,7 +274,7 @@
 			<v-divider></v-divider>
 			<v-card-actions>
 				<v-spacer></v-spacer>
-				<v-btn variant="text" @click="dialogAbout.isShow = false">Close</v-btn>
+				<v-btn variant="text" @click="dialogAbout.isShow = false">閉じる</v-btn>
 				<v-spacer></v-spacer>
 			</v-card-actions>
 		</v-card>
@@ -254,25 +302,35 @@
 					<v-card class="mb-4" border flat>
 						<v-card-title class="section-title pt-4">目標設定</v-card-title>
 						<v-card-text>
-							<label class="field-label" for="target-select">最終的に欲しいアイテム</label>
-							<div class="select-wrap mb-5">
-								<select id="target-select" class="native-select" v-model="targetId">
-									<optgroup v-for="g in targetGroups" :key="g.label" :label="g.label">
-										<option v-for="it in g.items" :key="it.id" :value="it.id" :disabled="it.pending">{{ it.text }}{{ it.pending ? '（調査中）' : '' }}</option>
-									</optgroup>
-								</select>
-								<v-icon icon="mdi-menu-down" class="select-arrow"></v-icon>
-							</div>
-
-							<v-text-field
-								v-model="targetQtyInput"
-								label="必要数量"
-								type="number" min="0" step="1" inputmode="numeric"
-								suffix="個"
+							<v-select
+								id="target-select"
+								v-model="targetIds"
+								:items="targetSelectItems"
+								label="最終的に欲しいアイテム（複数選択可）"
+								multiple chips closable-chips clearable
 								variant="outlined" density="comfortable"
-								:rules="[qtyRule]"
-								@keyup.enter="onCalculate"
-							></v-text-field>
+								hide-details
+								class="mb-4"
+							></v-select>
+
+							<!-- 目標アイテムごとの必要数量 -->
+							<div v-if="targetIds.length" class="mb-4">
+								<div class="field-label">必要数量</div>
+								<div v-for="id in targetIds" :key="id" class="inventory-row">
+									<label class="inventory-name" :for="'qty-' + id">{{ nameOf(id) }}</label>
+									<v-text-field
+										:id="'qty-' + id"
+										class="inventory-input"
+										v-model="targetQtyInputs[id]"
+										type="number" min="0" step="1" inputmode="numeric"
+										suffix="個"
+										variant="outlined" density="compact"
+										hide-details="auto"
+										:rules="[qtyRule]"
+										@keyup.enter="onCalculate"
+									></v-text-field>
+								</div>
+							</div>
 
 							<v-btn block color="accent" size="large" class="mt-1 font-weight-bold"
 								prepend-icon="mdi-calculator-variant-outline"
@@ -338,26 +396,34 @@
 									計算後に入力が変更されています。最新の内容で見るには、もう一度「計算」を押してください。
 								</v-alert>
 
+								<!-- 目標が複数のときだけタブを表示（全て / 目標アイテムごと） -->
+								<v-tabs v-if="result.targets.length > 1" v-model="resultTab" color="primary" show-arrows density="compact" class="mb-3">
+									<v-tab value="all">全て</v-tab>
+									<v-tab v-for="t in result.targets" :key="t.id" :value="t.id">{{ nameOf(t.id) }}</v-tab>
+								</v-tabs>
+
 								<div class="summary">
-									<template v-if="result.targetRow.net > 0">
-										「{{ nameOf(result.targetId) }}」を {{ fmt(result.targetQty) }} 個にするには、
-										あと <strong class="num">{{ fmt(result.targetRow.net) }}</strong> 個
-										{{ result.targetRow.craftable ? '作成' : '入手' }}が必要です。
-									</template>
-									<template v-else>
-										「{{ nameOf(result.targetId) }}」は目標数量をすでに所持しています。追加で必要な素材はありません。
-									</template>
+									<div v-for="t in resultView.summaries" :key="t.id">
+										<template v-if="t.net > 0">
+											「{{ nameOf(t.id) }}」を {{ fmt(t.qty) }} 個にするには、
+											あと <strong class="num">{{ fmt(t.net) }}</strong> 個
+											{{ t.craftable ? '作成' : '入手' }}が必要です。
+										</template>
+										<template v-else>
+											「{{ nameOf(t.id) }}」は目標数量をすでに所持しています。
+										</template>
+									</div>
 								</div>
 
-								<v-alert v-if="result.unknownRecipes.length" type="info" variant="tonal" density="compact" class="mb-3"
+								<v-alert v-if="resultView.unknownRecipes.length" type="info" variant="tonal" density="compact" class="mb-3"
 									title="レシピ調査中のアイテム">
-									<div v-for="u in result.unknownRecipes" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
+									<div v-for="u in resultView.unknownRecipes" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
 									<div class="text-caption mt-2">
 										レシピがまだ判明していないため、これらのアイテムに必要な素材は計算に含まれていません。
 									</div>
 								</v-alert>
 
-								<v-table v-if="result.rows.length" density="compact" class="result-table">
+								<v-table v-if="resultView.rows.length" density="compact" class="result-table">
 									<thead>
 										<tr>
 											<th>アイテム</th>
@@ -368,7 +434,7 @@
 										</tr>
 									</thead>
 									<tbody>
-										<tr v-for="r in result.rows" :key="r.id"
+										<tr v-for="r in resultView.rows" :key="r.id"
 											:class="{ 'row-done': r.net === 0, 'section-break': r.sectionStart }">
 											<td>
 												{{ nameOf(r.id) }}
@@ -384,6 +450,10 @@
 								<p class="note mt-3 mb-0">
 									総所要量は、上位のアイテムの「必要数」にBOMの数量を掛けて合計した値です。
 									中間品は所持数を差し引いた分だけ材料に展開しています。
+									<template v-if="resultTab !== 'all'">
+										<br>このタブは「{{ nameOf(resultTab) }}」だけを作る場合の内訳です（所持数はすべてこのアイテムに使える前提）。
+										複数の目標で所持数を分け合った結果は「全て」タブで確認してください。
+									</template>
 								</p>
 							</template>
 						</v-card-text>
@@ -435,6 +505,9 @@
 															:variant="t.addressCount === 1 ? 'flat' : 'tonal'">
 															{{ nameOf(t.id) }} あと{{ fmt(t.need) }}個<span v-if="t.addressCount === 1" class="only-mark">ここだけ</span>
 														</v-chip>
+													</div>
+													<div v-if="a.missingTargets.length" class="missing-note">
+														※{{ a.missingTargets.map(nameOf).join('、') }}の素材は入手できません
 													</div>
 												</td>
 												<td class="text-end">
@@ -710,31 +783,39 @@ const PuzCalc = (() => {
 	 * トポロジカル順（親→子）に処理するため、あるアイテムを処理する時点で
 	 * すべての経路からの需要が合算済みになっており、在庫は1回だけ差し引かれる。
 	 * 中間品は「正味所要量」の分だけ下位へ展開する。
+	 * 目標は複数指定できる（targets: [{ id, qty }]）。目標どうしが材料関係にある場合も需要は合算される。
+	 * 互換のため、単一目標の targetId / targetQty 指定も受け付ける。
 	 *
 	 * 戻り値: [{ id, kind, craftable, recipeKnown, gross, stock, net }]（トポロジカル順）
 	 *   kind: 'target' | 'intermediate' | 'terminal'
 	 *   recipeKnown: 作成品のうちレシピが判明しているか（調査中の作成品は材料に展開しない）
 	 */
-	function calculateRequirements({ bom, topoOrder, targetId, targetQty, inventory }) {
+	function calculateRequirements({ bom, topoOrder, targets, targetId, targetQty, inventory }) {
+		const list = targets || [{ id: targetId, qty: targetQty }];
+		const targetSet = new Set(list.map((t) => t.id));
 		const stockOf = (id) => {
 			const v = inventory && hasOwn(inventory, id) ? inventory[id] : 0;
 			return Number.isFinite(v) && v > 0 ? v : 0;
 		};
-		const reachable = collectReachable(bom, targetId);
+		const reachable = new Set();
+		for (const t of list) for (const id of collectReachable(bom, t.id)) reachable.add(id);
 		const order = topoOrder.filter((id) => reachable.has(id));
-		if (!order.includes(targetId)) order.unshift(targetId); // BOMに一切登場しないアイテムを目標にした場合
+		// BOMに一切登場しないアイテムを目標にした場合は先頭に置く（親を持たないので順序は崩れない）
+		const missing = [...targetSet].filter((id) => !order.includes(id));
+		order.unshift(...missing);
 
-		const gross = new Map([[targetId, targetQty]]);
+		const gross = new Map();
+		for (const t of list) gross.set(t.id, (gross.get(t.id) || 0) + t.qty);
 		const rows = [];
 		for (const id of order) {
 			const g = gross.get(id) || 0;
-			if (g <= 0 && id !== targetId) continue; // 需要が発生しなかったアイテムは表示しない
+			if (g <= 0 && !targetSet.has(id)) continue; // 需要が発生しなかったアイテムは表示しない
 			const craftable = isCraftable(bom, id);
 			const stock = stockOf(id);
 			const net = calculateNetRequirement(g, stock);
 			rows.push({
 				id,
-				kind: id === targetId ? 'target' : (craftable ? 'intermediate' : 'terminal'),
+				kind: targetSet.has(id) ? 'target' : (craftable ? 'intermediate' : 'terminal'),
 				craftable,
 				recipeKnown: hasKnownRecipe(bom, id),
 				gross: g,
@@ -752,20 +833,29 @@ const PuzCalc = (() => {
 
 	/**
 	 * 計算結果の表示順を決める。
-	 *   1. 目標アイテム
+	 *   1. 目標アイテム（選択した順）
 	 *   2. 目標の直接の材料（bom.json に書かれた順。中間品・素材の区別なく、ゲームの表示と同じ並び）
+	 *      目標が複数のときは、1つ目の目標の材料 → 2つ目の目標の材料 … の順（重複は最初の位置）
 	 *   3. さらに分解して出てきたアイテム（item.json に書かれた順）
+	 * targetIds は ID 1つ、または ID の配列。
 	 */
-	function sortRequirementRows(rows, bom, targetId, orderMap) {
-		const directChildren = childIdsOf(bom, targetId);
-		const directIndex = new Map(directChildren.map((id, i) => [id, i]));
-		const groupOf = (id) => (id === targetId ? 0 : directIndex.has(id) ? 1 : 2);
+	function sortRequirementRows(rows, bom, targetIds, orderMap) {
+		const targets = Array.isArray(targetIds) ? targetIds : [targetIds];
+		const targetIndex = new Map(targets.map((id, i) => [id, i]));
+		const directIndex = new Map();
+		for (const t of targets) {
+			for (const id of childIdsOf(bom, t)) {
+				if (!targetIndex.has(id) && !directIndex.has(id)) directIndex.set(id, directIndex.size);
+			}
+		}
+		const groupOf = (id) => (targetIndex.has(id) ? 0 : directIndex.has(id) ? 1 : 2);
 		const masterRank = (id) => (orderMap.has(id) ? orderMap.get(id) : Number.MAX_SAFE_INTEGER);
 		const SECTION = ['target', 'direct', 'expanded'];
 		const sorted = [...rows].sort((a, b) => {
 			const ga = groupOf(a.id);
 			const gb = groupOf(b.id);
 			if (ga !== gb) return ga - gb;
+			if (ga === 0) return targetIndex.get(a.id) - targetIndex.get(b.id);
 			if (ga === 1) return directIndex.get(a.id) - directIndex.get(b.id);
 			return masterRank(a.id) - masterRank(b.id);
 		});
@@ -938,6 +1028,25 @@ const PuzCalc = (() => {
 		});
 	}
 
+	/**
+	 * 目標が複数のとき、各マップで「どの目標の素材も1つも入手できないか」を調べて注記を付ける。
+	 * ranking   : rankAddresses の結果
+	 * table     : マップ表
+	 * targetMaterials: [{ id: 目標ID, materials: Set(その目標に関係する不足素材ID) }]
+	 *   materials が空の目標（不足なし・入手先が未登録のみ 等）は注記の対象外
+	 * 戻り値: 各要素に missingTargets（目標IDの配列）を加えた ranking
+	 */
+	function annotateMissingTargets(ranking, table, targetMaterials) {
+		const active = targetMaterials.filter((t) => t.materials.size > 0);
+		return ranking.map((a) => {
+			const drops = new Set((table[a.code] && table[a.code].drop) || []);
+			const missingTargets = active
+				.filter((t) => ![...t.materials].some((id) => drops.has(id)))
+				.map((t) => t.id);
+			return { ...a, missingTargets };
+		});
+	}
+
 	// ---------------------------------------------------------------
 	// 所持数データ
 	// ---------------------------------------------------------------
@@ -956,6 +1065,35 @@ const PuzCalc = (() => {
 			if (Number.isSafeInteger(v) && v >= 0) valid[id] = v;
 		}
 		return { valid, extras };
+	}
+
+	/** インポートで受け付ける文字数の上限（貼り付けミスで巨大な文字列が来た場合に備える） */
+	const IMPORT_MAX_LENGTH = 100000;
+
+	/**
+	 * インポートされた文字列（エクスポートした所持数のJSON）の検証。
+	 * 次をすべて満たすときだけ採用する:
+	 *   - JSONとして読めるオブジェクトである
+	 *   - すべての値が0以上の整数である
+	 *   - アイテムマスタに存在するIDを1つ以上含む
+	 * 戻り値: { ok: true, valid, extras } または { ok: false, reason }（reason は開発者向け）
+	 */
+	function parseInventoryImport(text, nameMap) {
+		const src = typeof text === 'string' ? text.trim() : '';
+		if (src === '') return { ok: false, reason: '入力が空です' };
+		if (src.length > IMPORT_MAX_LENGTH) return { ok: false, reason: '文字数が多すぎます' };
+		let raw;
+		try {
+			raw = JSON.parse(src);
+		} catch (e) {
+			return { ok: false, reason: 'JSONとして読み取れません' };
+		}
+		if (!isPlainObject(raw)) return { ok: false, reason: 'オブジェクト形式ではありません' };
+		const entries = Object.entries(raw);
+		const badKey = entries.find(([, v]) => !(Number.isSafeInteger(v) && v >= 0));
+		if (badKey) return { ok: false, reason: `0以上の整数ではない値があります: ${badKey[0]}` };
+		if (!entries.some(([id]) => nameMap.has(id))) return { ok: false, reason: 'アイテムマスタに存在するIDがありません' };
+		return { ok: true, ...sanitizeInventory(raw, nameMap) };
 	}
 
 	return {
@@ -977,7 +1115,9 @@ const PuzCalc = (() => {
 		calculateAddressScore,
 		calculateAddressScores,
 		rankAddresses,
+		annotateMissingTargets,
 		sanitizeInventory,
+		parseInventoryImport,
 		isCraftable,
 		hasKnownRecipe,
 		extractUnknownRecipes,
@@ -1008,6 +1148,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 	/** 所持数を保存する localStorage のキー */
 	const STORAGE_KEY = 'toupuzCalc.itemInventory';
+
+	/**
+	 * リリースノート（新しいものを先頭に追加する）。
+	 *   title: 1行目（日付とバージョンなど）
+	 *   body : 本文。\n で改行できる。長い行は画面幅に合わせて自動で折り返す
+	 */
+	const RELEASE_NOTES = Object.freeze([
+		{
+			title: '2026/09/30(水) ver1.0.1',
+			body: '目標アイテムの複数選択機能を追加\n' +
+				'所持アイテム入力のインポート・エクスポート機能を追加',
+		},
+	]);
 
 	/** アドレス優先度の説明文 */
 	const PRIORITY_EXPLANATION =
@@ -1094,6 +1247,41 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	}
 
 	// ---------------------------------------------------------------
+	// クリップボード
+	// ---------------------------------------------------------------
+
+	/**
+	 * 文字列をクリップボードにコピーし、成功したら true を返す。
+	 * 通常は Clipboard API を使い、使えない環境（http で開いた場合など）では
+	 * 一時的なテキストエリア経由の旧来の方法で試す。
+	 */
+	async function copyToClipboard(text) {
+		try {
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(text);
+				return true;
+			}
+		} catch (e) {
+			console.warn('[エクスポート] Clipboard API でのコピーに失敗しました:', e);
+		}
+		try {
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.setAttribute('readonly', '');
+			ta.style.position = 'fixed';
+			ta.style.opacity = '0';
+			document.body.appendChild(ta);
+			ta.select();
+			const ok = document.execCommand('copy');
+			document.body.removeChild(ta);
+			return ok;
+		} catch (e) {
+			console.warn('[エクスポート] コピーに失敗しました:', e);
+			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------
 	// 所持数の保存・復元（localStorage）
 	// ---------------------------------------------------------------
 
@@ -1123,7 +1311,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	// Vue アプリ
 	// ---------------------------------------------------------------
 
-	const { createApp, ref, reactive, computed, shallowRef, onMounted, nextTick } = Vue;
+	const { createApp, ref, reactive, computed, shallowRef, watch, onMounted, nextTick } = Vue;
 
 	const app = createApp({
 		template: '#app-template',
@@ -1144,8 +1332,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				addressCounts: new Map(),
 			});
 
-			const targetId = ref('');
-			const targetQtyInput = ref('1');
+			const targetIds = ref([]);              // 目標アイテムID（選択した順）
+			const targetQtyInputs = reactive({});   // 目標アイテムID → 必要数量の入力欄の文字列
+			const resultTab = ref('all');           // 計算結果のタブ（'all' または目標アイテムID）
+			// 目標に追加されたアイテムの必要数量は 1 から始める
+			watch(targetIds, (ids) => {
+				// 一括クリア（×ボタン）で null になった場合も空配列に揃える
+				if (!Array.isArray(ids)) { targetIds.value = []; return; }
+				for (const id of ids) if (!hasValue(targetQtyInputs, id)) targetQtyInputs[id] = '1';
+			}, { deep: true });
 			const inventory = reactive({});        // アイテムID → 所持数（保存済みの確定値）
 			const inventoryInputs = reactive({});  // アイテムID → 入力欄の文字列
 			let inventoryExtras = {};              // アイテムマスタにない古いID（保存時に残すだけ）
@@ -1156,15 +1351,30 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			const snackbar = reactive({ show: false, text: '', color: 'error' });
 
 			// about ダイアログ
+			// リリースノートダイアログ
+			const dialogReleaseNotes = reactive({ isShow: false });
+
 			const dialogAbout = reactive({
 				isShow: false,
 				persistent: false,
-				title: 'About',
+				title: 'このサイトについて',
 				subtitle: '',
 			});
 
 			// about ダイアログの最終更新日時（画面を読み込んだ時点の document.lastModified）
 			const lastModified = formatDateTime(new Date(document.lastModified));
+
+			// メニュー（右端から引き出すパネル）
+			const menuOpen = ref(false);
+			/** メニュー項目の選択: パネルを閉じてから処理を行う */
+			const onMenu = (action) => {
+				menuOpen.value = false;
+				action();
+			};
+
+			// インポートダイアログ
+			const dialogImport = reactive({ isShow: false });
+			const importText = ref('');  // 貼り付けられた設定
 
 			// 報告ダイアログ
 			const dialogReport = reactive({
@@ -1242,7 +1452,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			};
 
 			// ----- 算出プロパティ -----
-			const canCalculate = computed(() => ready.value && dataErrors.value.length === 0 && !!targetId.value);
+			const canCalculate = computed(() => ready.value && dataErrors.value.length === 0 && targetIds.value.length > 0);
 
 			// 目標selectの選択肢（作成品 / 素材 に分けてアイテムマスタ順）
 			const targetGroups = computed(() => {
@@ -1255,6 +1465,22 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					{ label: '作成品', items: craftables },
 					{ label: '素材', items: materials },
 				].filter((g) => g.items.length);
+			});
+
+			// 目標selectの項目（見出し付き。調査中の作成品は選べない）
+			const targetSelectItems = computed(() => targetGroups.value.flatMap((g) => [
+				{ type: 'subheader', title: g.label },
+				...g.items.map((it) => ({
+					title: it.pending ? `${it.text}（調査中）` : it.text,
+					value: it.id,
+					props: { disabled: !!it.pending },
+				})),
+			]));
+
+			// 表示中のタブの計算結果
+			const resultView = computed(() => {
+				if (!result.value) return { rows: [], unknownRecipes: [], summaries: [] };
+				return result.value.views[resultTab.value] || result.value.views.all;
 			});
 
 			// 計算結果の「あと必要」数（所持数一覧のバッジ・絞り込み用）
@@ -1273,7 +1499,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			});
 
 			// 計算後に入力が変わったか
-			const currentSignature = () => JSON.stringify([targetId.value, String(targetQtyInput.value ?? '').trim(), inventory]);
+			const currentSignature = () => JSON.stringify([
+				targetIds.value,
+				targetIds.value.map((id) => String(targetQtyInputs[id] ?? '').trim()),
+				inventory,
+			]);
 			const isStale = computed(() => !!result.value && result.value.signature !== currentSignature());
 
 			// ----- 初期化 -----
@@ -1314,9 +1544,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					inventoryInputs[it.id] = hasValue(valid, it.id) && valid[it.id] !== 0 ? String(valid[it.id]) : '';
 				}
 
-				// 目標の初期値: 選択できる最初のアイテム（作成品を優先）
-				const first = targetGroups.value.flatMap((g) => g.items).find((it) => !it.pending);
-				targetId.value = first ? first.id : '';
+				// 目標は未選択の状態から始める
 				ready.value = true;
 			}
 			const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
@@ -1364,11 +1592,51 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				}
 			}
 
-			/** 計算ボタン: 所要量計算 → 不足抽出 → アドレス評価 → 順位付け */
+			/** エクスポート: 所持数（localStorage に保存している内容）をクリップボードにコピー */
+			async function onExport() {
+				const text = JSON.stringify({ ...inventoryExtras, ...inventory });
+				if (await copyToClipboard(text)) {
+					showSnack('設定をコピーしました', 'success');
+				} else {
+					showSnack('設定のコピーに失敗しました');
+				}
+			}
+
+			/** インポートダイアログを開く（前回の入力は残さない） */
+			function openImportDialog() {
+				importText.value = '';
+				dialogImport.isShow = true;
+			}
+
+			/** インポート: 貼り付けられた設定を検証し、問題なければ所持数を置き換えて保存 */
+			function onImport() {
+				const parsed = PuzCalc.parseInventoryImport(importText.value, master.value.nameMap);
+				if (!parsed.ok) {
+					console.warn('[インポート] 採用できない内容です:', parsed.reason);
+					showSnack('設定のインポートに失敗しました');
+					return;
+				}
+				// 所持数を丸ごと置き換える（インポートした内容にないアイテムは0）
+				for (const it of master.value.items) {
+					const v = hasValue(parsed.valid, it.id) ? parsed.valid[it.id] : 0;
+					inventory[it.id] = v;
+					inventoryInputs[it.id] = v !== 0 ? String(v) : '';
+				}
+				inventoryExtras = parsed.extras;
+				if (!saveInventory({ ...inventory }, inventoryExtras)) {
+					showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+					return;
+				}
+				dialogImport.isShow = false;
+				importText.value = '';
+				showSnack('設定をインポートしました', 'success');
+			}
+
+			/** 計算ボタン: 所要量計算 → 不足抽出 → マップ評価 → 順位付け（目標は複数可） */
 			function onCalculate() {
 				if (!canCalculate.value) return;
-				const qtyText = String(targetQtyInput.value ?? '').trim();
-				if (!isNonNegativeIntegerText(qtyText)) {
+				const qtyTexts = targetIds.value.map((id) => String(targetQtyInputs[id] ?? '').trim());
+				if (qtyTexts.some((t) => !isNonNegativeIntegerText(t))) {
 					showSnack('必要数量は0以上の整数で入力してください。');
 					return;
 				}
@@ -1384,38 +1652,73 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				}
 
 				const { bom, topoOrder, addressTable, addressCounts, orderMap } = master.value;
-				const targetQty = Number(qtyText);
+				const inv = { ...inventory };  // 最新の所持数
+				const targets = targetIds.value.map((id, i) => ({ id, qty: Number(qtyTexts[i]) }));
+				const ids = targets.map((t) => t.id);
 
-				// 1-2. BOM所要量と正味所要量（最新の所持数を使用）
-				const rows = PuzCalc.calculateRequirements({
-					bom, topoOrder, targetId: targetId.value, targetQty, inventory: { ...inventory },
-				});
+				// 1-2. 全目標をまとめたBOM所要量と正味所要量（所持数は目標どうしで共有）
+				const rows = PuzCalc.calculateRequirements({ bom, topoOrder, targets, inventory: inv });
 				// 3. 不足アイテムの抽出
 				const shortages = PuzCalc.extractShortages(rows);
 				const unreachable = PuzCalc.findUnreachableShortages(shortages, addressCounts);
-				const unknownRecipes = PuzCalc.extractUnknownRecipes(rows);
 				if (unreachable.length) {
 					// 開発者向け: どのマップにも登録がない素材（map.json への追加漏れの可能性）
 					console.warn('[データ] 入手できるマップが map.json に登録されていないアイテム:', unreachable.map((u) => nameOf(u.id)).join('、'));
 				}
-				// 4-5. アドレス評価と順位付け
-				const scored = PuzCalc.calculateAddressScores({ table: addressTable, shortages, addressCounts, orderMap });
-				const ranking = PuzCalc.rankAddresses(scored);
 
-				// 表示順: 目標 → 目標の直接の材料（bom.json の記載順）→ それ以外（item.json の記載順）
-				const sortedRows = PuzCalc.sortRequirementRows(rows, bom, targetId.value, orderMap);
+				// 目標アイテムごとの内訳（そのアイテムだけを作る場合。所持数はそれぞれで全て使える前提）
+				const perTarget = targets.map((t) => {
+					const r = PuzCalc.calculateRequirements({ bom, topoOrder, targets: [t], inventory: inv });
+					const self = r.find((x) => x.id === t.id);
+					return {
+						target: t,
+						rows: PuzCalc.sortRequirementRows(r, bom, t.id, orderMap),
+						unknownRecipes: PuzCalc.extractUnknownRecipes(r),
+						summary: { id: t.id, qty: t.qty, net: self.net, craftable: self.craftable },
+					};
+				});
+
+				// 4-5. マップ評価と順位付け（全目標の不足をまとめて評価）
+				const scored = PuzCalc.calculateAddressScores({ table: addressTable, shortages, addressCounts, orderMap });
+				let ranking = PuzCalc.rankAddresses(scored);
+				if (targets.length > 1) {
+					// 目標ごとに「関係する不足素材」を求め、それが1つも出ないマップに注記を付ける
+					const shortageIds = new Set(shortages.filter((x) => addressCounts.get(x.id)).map((x) => x.id));
+					const targetMaterials = perTarget.map((p) => {
+						const reach = PuzCalc.collectReachable(bom, p.target.id);
+						const materials = p.summary.net > 0
+							? new Set([...reach].filter((id) => shortageIds.has(id)))
+							: new Set();
+						return { id: p.target.id, materials };
+					});
+					ranking = PuzCalc.annotateMissingTargets(ranking, addressTable, targetMaterials);
+				} else {
+					ranking = ranking.map((a) => ({ ...a, missingTargets: [] }));
+				}
+
+				// 表示用（タブごと）
+				const views = {
+					all: {
+						rows: PuzCalc.sortRequirementRows(rows, bom, ids, orderMap),
+						unknownRecipes: PuzCalc.extractUnknownRecipes(rows),
+						summaries: perTarget.map((p) => p.summary),
+					},
+				};
+				for (const p of perTarget) {
+					views[p.target.id] = { rows: p.rows, unknownRecipes: p.unknownRecipes, summaries: [p.summary] };
+				}
 
 				result.value = {
-					targetId: targetId.value,
-					targetQty,
-					targetRow: rows.find((r) => r.id === targetId.value),
-					rows: sortedRows,
+					targets,
+					rows,           // 全目標をまとめた結果（所持数一覧の「あと」表示・絞り込みに使う）
+					views,
 					shortages,
 					unreachable,
-					unknownRecipes,
+					unknownRecipes: views.all.unknownRecipes,
 					ranking,
 					signature: currentSignature(),
 				};
+				resultTab.value = 'all';
 
 				// スマホ幅では結果までスクロール
 				if (window.innerWidth < 960) {
@@ -1430,15 +1733,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			return {
 				loading, ready, dataErrors,
-				targetId, targetQtyInput, targetGroups, canCalculate,
+				targetIds, targetQtyInputs, targetSelectItems, canCalculate, resultTab, resultView,
 				inventoryInputs, inventorySearch, inventoryFilter, inventoryRows,
 				result, isStale, snackbar, dialogAbout, lastModified,
 				dialogReport, reportForm, reportTypes: REPORT_TYPES, reportLimits: REPORT_LIMITS,
 				reportSending, canSubmitReport, onReportSubmit,
 				weights: PuzCalc.SCORE_WEIGHTS,
 				priorityExplanation: PRIORITY_EXPLANATION,
+				dialogReleaseNotes, releaseNotes: RELEASE_NOTES,
 				nameOf, fmt, kindLabel, kindColor, qtyRule, needOf,
 				onInventoryInput, onCalculate,
+				dialogImport, importText, hasText, openImportDialog, onImport, onExport,
+				menuOpen, onMenu,
 			};
 		},
 	});
