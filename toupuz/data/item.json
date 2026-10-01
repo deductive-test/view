@@ -34,12 +34,23 @@
 	,{"id":"item030","text":"天ぷら"}
 	,{"id":"crft006","text":"とんかち"}
 	,{"id":"crft001","text":"すごろく"}
+	,{"id":"crft002","text":"花札"}
+	,{"id":"crft003","text":"鍬"}
 	,{"id":"item031","text":"羽衣"}
 	,{"id":"item032","text":"元結"}
 	,{"id":"item033","text":"ウロコ"}
 
-	,{"id":"crft002","text":"花札"}
-	,{"id":"crft003","text":"鍬"}
+
+	,{"id":"crft007","text":"臼と杵"}
+	,{"id":"crft008","text":"お碗"}
+	,{"id":"crft009","text":"お茶碗"}
+	,{"id":"crft010","text":"囲碁"}
+	,{"id":"crft011","text":"味噌"}
+	,{"id":"crft012","text":"お味噌汁"}
+	,{"id":"crft013","text":"書き物道具"}
+	,{"id":"crft014","text":"花の蜜"}
+	,{"id":"crft015","text":"お団子"}
+	,{"id":"crft016","text":"そろばん"}
 
 	,{"id":"item901","text":"赤の絵具"}
 	,{"id":"item902","text":"青の絵具"}

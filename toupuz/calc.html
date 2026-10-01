@@ -61,6 +61,12 @@
 	.release-note__title { font-weight: 700; }
 	.release-note__body { margin-top: 4px; white-space: pre-line; overflow-wrap: anywhere; }
 	.release-note--sep { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
+	/* 自動スクロールで移動したとき、固定ヘッダーの裏に隠れないようにする */
+	#result-card, #inventory-card { scroll-margin-top: 64px; }
+	/* 出陣中のマップ行（推奨マップ）と、所持数の出陣中タブの見出し */
+	.addr-table tr.row-sortie td { background: rgba(var(--v-theme-primary), .14); }
+	.addr-table .sortie-cell { vertical-align: middle !important; white-space: nowrap; }
+	.sortie-caption { font-size: .8rem; color: rgb(var(--v-theme-primary)); }
 	.missing-note { margin-top: 6px; font-size: .78rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.only-mark { margin-left: 6px; font-size: .7rem; font-weight: 700; }
 	.score { font-weight: 700; }
@@ -97,8 +103,8 @@
 		.addr-table table, .addr-table tbody { display: block; }
 		.addr-table tr {
 			display: grid;
-			grid-template-columns: 3.2em 1fr;
-			grid-template-areas: "rank addr" "rank items" "rank score";
+			grid-template-columns: 3.2em 1fr auto;
+			grid-template-areas: "rank addr btn" "rank items items" "rank score score";
 			row-gap: 6px;
 			padding: 12px 0;
 			border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
@@ -108,6 +114,9 @@
 		.addr-table td:nth-child(2) { grid-area: addr; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 		.addr-table td:nth-child(3) { grid-area: items; }
 		.addr-table td:nth-child(4) { grid-area: score; text-align: left !important; display: flex; align-items: baseline; gap: 8px; }
+		.addr-table td:nth-child(5) { grid-area: btn; }
+		.addr-table tr.row-sortie { background: rgba(var(--v-theme-primary), .14); }
+		.addr-table tr.row-sortie td { background: transparent; }
 		.addr-table .breakdown { white-space: normal; }
 	}
 	.breakdown { font-size: .72rem; line-height: 1.5; white-space: nowrap; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
@@ -122,7 +131,7 @@
 	<v-app-bar color="primary" density="comfortable" flat>
 		<v-app-bar-title>
 			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.1</span>
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.2</span>
 		</v-app-bar-title>
 		<template v-slot:append>
 			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
@@ -340,7 +349,7 @@
 					</v-card>
 
 					<!-- 所持数 -->
-					<v-card border flat>
+					<v-card id="inventory-card" border flat>
 						<v-card-title class="section-title pt-4">所持数</v-card-title>
 						<v-card-subtitle class="pb-2">入力した値はこのブラウザに自動で保存されます</v-card-subtitle>
 						<v-card-text>
@@ -358,7 +367,13 @@
 								<v-btn value="all">すべて</v-btn>
 								<v-btn value="nonzero">0以外</v-btn>
 								<v-btn value="short" :disabled="!result">不足中</v-btn>
+								<v-btn value="sortie" :disabled="!sortieCode">出陣中</v-btn>
 							</v-btn-toggle>
+
+							<div v-if="inventoryFilter === 'sortie' && sortieCode" class="sortie-caption mb-2">
+								<v-icon icon="mdi-flag-variant" size="small" class="mr-1"></v-icon>
+								出陣中: {{ sortieCode }} {{ sortieName }}（ドロップする可能性のあるアイテム）
+							</div>
 
 							<div class="inventory-list">
 								<div v-for="it in inventoryRows" :key="it.id" class="inventory-row">
@@ -489,10 +504,11 @@
 												<th>マップ</th>
 												<th>狙える不足アイテム</th>
 												<th class="text-end">スコア</th>
+												<th class="text-center">出陣</th>
 											</tr>
 										</thead>
 										<tbody>
-											<tr v-for="a in result.ranking" :key="a.code">
+											<tr v-for="a in result.ranking" :key="a.code" :class="{ 'row-sortie': a.code === sortieCode }">
 												<td class="text-end rank num">{{ a.rank }}<span v-if="a.tied" class="tie">同順位</span></td>
 												<td>
 													<div class="addr-code">{{ a.code }}</div>
@@ -513,6 +529,14 @@
 												<td class="text-end">
 													<div class="score num">{{ a.scores.total.toFixed(2) }}</div>
 													<div class="breakdown num">{{ a.scores.coverage }}種類 / 不足 {{ a.scores.need.toFixed(2) }} / 希少 {{ a.scores.rarity.toFixed(2) }}</div>
+												</td>
+												<td class="text-center sortie-cell">
+													<!-- 出陣中は常に1件だけ。出陣中の行のボタンは押せない -->
+													<v-btn size="small" class="font-weight-bold"
+														:color="a.code === sortieCode ? 'primary' : 'accent'"
+														:variant="a.code === sortieCode ? 'tonal' : 'flat'"
+														:disabled="a.code === sortieCode"
+														@click="onSortie(a.code)">{{ a.code === sortieCode ? '出陣中' : '出陣' }}</v-btn>
 												</td>
 											</tr>
 										</tbody>
@@ -1156,12 +1180,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	 */
 	const RELEASE_NOTES = Object.freeze([
 		{
-			title: '2026/09/30(水) ver1.0.1',
+			title: '2026/10/01(木) ver 1.0.2',
+			body: '出陣マップに絞った所有料記録機能',
+		},
+		{
+			title: '2026/09/30(水) ver 1.0.1',
 			body: '目標アイテムの複数選択機能を追加\n' +
 				'所持アイテム入力のインポート・エクスポート機能を追加',
 		},
 		{
-			title: '2026/09/29(火) ver1.0.0',
+			title: '2026/09/29(火) ver 1.0.0',
 			body: 'リリース',
 		},
 	]);
@@ -1351,6 +1379,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			const inventorySearch = ref('');
 			const inventoryFilter = ref('all');
+			const sortieCode = ref(null);   // 出陣中のマップ（推奨マップで選んだもの。常に1件だけ）
 			const result = shallowRef(null);
 			const snackbar = reactive({ show: false, text: '', color: 'error' });
 
@@ -1491,6 +1520,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			const needMap = computed(() => new Map(result.value ? result.value.rows.map((r) => [r.id, r.net]) : []));
 			const needOf = (id) => needMap.value.get(id) || 0;
 
+			// 出陣中のマップの名前と、そこでドロップする可能性のあるアイテム
+			const sortieName = computed(() => {
+				const e = sortieCode.value && master.value.addressTable[sortieCode.value];
+				return e ? e.name : '';
+			});
+			const sortieDrops = computed(() => {
+				const e = sortieCode.value && master.value.addressTable[sortieCode.value];
+				return new Set(e ? e.drop : []);
+			});
+
 			// 所持数一覧（検索・絞り込み）
 			const inventoryRows = computed(() => {
 				const keyword = (inventorySearch.value || '').trim().toLowerCase();
@@ -1498,6 +1537,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					if (keyword && !it.text.toLowerCase().includes(keyword)) return false;
 					if (inventoryFilter.value === 'nonzero') return (inventory[it.id] || 0) > 0;
 					if (inventoryFilter.value === 'short') return needOf(it.id) > 0;
+					if (inventoryFilter.value === 'sortie') return sortieDrops.value.has(it.id);
 					return true;
 				});
 			});
@@ -1636,6 +1676,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				showSnack('設定をインポートしました', 'success');
 			}
 
+			/** 出陣: 選んだマップを出陣中にし、所持数を「出陣中」タブに切り替える */
+			function onSortie(code) {
+				sortieCode.value = code;
+				inventoryFilter.value = 'sortie';
+				inventorySearch.value = '';
+				// スマホ幅では所持数が上にあるので、所持数まで戻る
+				if (window.innerWidth < 960) {
+					nextTick(() => {
+						const el = document.getElementById('inventory-card');
+						if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+					});
+				}
+			}
+
 			/** 計算ボタン: 所要量計算 → 不足抽出 → マップ評価 → 順位付け（目標は複数可） */
 			function onCalculate() {
 				if (!canCalculate.value) return;
@@ -1749,6 +1803,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				onInventoryInput, onCalculate,
 				dialogImport, importText, hasText, openImportDialog, onImport, onExport,
 				menuOpen, onMenu,
+				sortieCode, sortieName, onSortie,
 			};
 		},
 	});
