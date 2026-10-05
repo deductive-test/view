@@ -80,28 +80,60 @@
 		,"item007":1
 		,"item013":1
 	}
-
-
+	,"crft017": {
+		"item016":4
+		,"item022":1
+		,"item020":1
+		,"crft014":1
+	}
+	,"crft018": {
+		"item021":3
+		,"item008":1
+		,"item020":1
+		,"crft014":1
+	}
+	,"item030": {
+		"item025":2
+		,"item009":2
+		,"item008":1
+		,"item021":1
+	}
 
 	,"crft901": {
+		"crft004": 6,
+		"crft005": 6,
+		"item015": 12
 	}
 	,"crft902": {
 		"crft004": 6,
 		"crft005": 6,
-		"item006": 4
+		"item023": 4
 	}
 	,"crft903": {
 		"crft004": 6,
 		"crft005": 6,
-		"item023": 4
+		"item006": 4
 	}
 	,"crft904": {
+		"crft004": 6,
+		"crft005": 6,
+		"item028": 4
 	}
 	,"crft905": {
+		"crft004": 6,
+		"crft005": 6,
+		"item011": 4
 	}
 	,"crft906": {
+		"crft004": 6,
+		"crft005": 6,
+		"item004": 20
+
 	}
 	,"crft907": {
+		"crft004": 6,
+		"crft005": 6,
+		"item010": 4
 	}
 	,"crft908": {
 	}
