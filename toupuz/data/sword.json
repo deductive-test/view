@@ -1,0 +1,47 @@
+[
+	{
+		"id": "sw003r",
+		"name": "三日月宗近",
+		"rare": true
+	},
+	{
+		"id": "sw132r",
+		"name": "太郎太刀",
+		"rare": true
+	},
+	{
+		"id": "sw025r",
+		"name": "一期一振",
+		"rare": true
+	},
+	{
+		"id": "sw089r",
+		"name": "歌仙兼定",
+		"rare": true
+	},
+	{
+		"id": "sw045r",
+		"name": "乱藤四郎",
+		"rare": true
+	},
+	{
+		"id": "sw085",
+		"name": "加州清光",
+		"rare": false
+	},
+	{
+		"id": "sw027",
+		"name": "鯰尾藤四郎",
+		"rare": false
+	},
+	{
+		"id": "sw029",
+		"name": "骨喰藤四郎",
+		"rare": false
+	},
+	{
+		"id": "sw073",
+		"name": "燭台切光忠",
+		"rare": false
+	}
+]

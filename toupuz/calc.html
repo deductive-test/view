@@ -22,6 +22,32 @@
 	ul { padding-left: 1em; }
 	.note { font-size: .8rem; line-height: 1.6; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 
+	/* ===== メニュー ===== */
+	/* ライト/ダークの切り替え: メニュー項目の下に、パネルの幅いっぱいで置く */
+	.theme-switch { padding: 4px 16px 16px; }
+
+	/* ===== タブ（目標設定・計算結果） ===== */
+	/* タブだと分かるよう、見出しタブの形にする（選択中=塗りつぶし / それ以外=枠線）。
+	   下線でタブの列と中身をつなぎ、ボタン群（v-btn-toggle）とは形で見分けられるようにする */
+	.box-tabs { height: auto !important; border-bottom: 2px solid rgb(var(--v-theme-primary)); }
+	.box-tabs .v-slide-group__content { gap: 4px; }
+	.box-tabs .v-tab.v-btn {
+		height: 36px;
+		border: 1px solid rgba(var(--v-theme-primary), .55);
+		border-bottom: none;
+		border-radius: 8px 8px 0 0;
+		background: rgb(var(--v-theme-surface));
+		color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+		text-transform: none;
+		letter-spacing: normal;
+	}
+	.box-tabs .v-tab.v-tab--selected {
+		border-color: rgb(var(--v-theme-primary));
+		background: rgb(var(--v-theme-primary));
+		color: rgb(var(--v-theme-on-primary));
+		font-weight: 700;
+	}
+
 	/* ===== 目標設定 ===== */
 	.field-label { display: block; font-size: .8rem; margin-bottom: 4px; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	/* 強化段階のボタン: 「（調査中）」が付いても幅に収まるよう、高さは内容に合わせる */
@@ -142,7 +168,7 @@
 	<v-app-bar color="primary" density="comfortable" flat>
 		<v-app-bar-title>
 			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.3</span>
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.4</span>
 		</v-app-bar-title>
 		<template v-slot:append>
 			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
@@ -158,6 +184,14 @@
 			<v-list-item prepend-icon="mdi-note-text-outline" title="リリースノート" @click="onMenu(() => { dialogReleaseNotes.isShow = true; })"></v-list-item>
 			<v-list-item prepend-icon="mdi-information-outline" title="このサイトについて" @click="onMenu(() => { dialogAbout.isShow = true; })"></v-list-item>
 		</v-list>
+		<!-- ライトモード / ダークモードの切り替え（切り替えてもパネルは閉じない） -->
+		<div class="theme-switch">
+			<v-btn-toggle v-model="themeMode" mandatory divided density="compact"
+				variant="outlined" color="primary" class="filter-toggle" aria-label="表示モード">
+				<v-btn value="light" aria-label="ライトモード" title="ライトモード"><v-icon icon="mdi-white-balance-sunny"></v-icon></v-btn>
+				<v-btn value="dark" aria-label="ダークモード" title="ダークモード"><v-icon icon="mdi-weather-night"></v-icon></v-btn>
+			</v-btn-toggle>
+		</div>
 	</v-navigation-drawer>
 
 	<!-- インポートダイアログ -->
@@ -279,6 +313,7 @@
 					<li><a href="data/item.json" target="_blank" rel="noopener">アイテムマスタ</a> - ドロップアイテム、合成アイテムを管理</li>
 					<li><a href="data/map.json" target="_blank" rel="noopener">マップマスタ</a> - 各マスごとのアイテムドロップを管理</li>
 					<li><a href="data/bom.json" target="_blank" rel="noopener">レシピマスタ</a> - 合成アイテムのレシピを管理</li>
+					<li><a href="data/sword.json" target="_blank" rel="noopener">刀剣男士マスタ</a> - 刀剣男士の名前、レアかどうかを管理</li>
 					<li><a href="data/sword_recipe.json" target="_blank" rel="noopener">刀剣男士レシピマスタ</a> - 刀剣男士の強化段階ごとに必要なアイテムを管理</li>
 				</ul>
 				<br>
@@ -324,7 +359,7 @@
 						<v-card-title class="section-title pt-4">目標設定</v-card-title>
 						<v-card-text>
 							<!-- 目標の選び方（アイテム / 刀剣男士）。どちらで選んだ分も下の「必要数量」に合算する -->
-							<v-tabs v-model="targetTab" color="primary" density="compact" grow class="mb-4">
+							<v-tabs v-model="targetTab" density="compact" grow hide-slider class="box-tabs mb-4">
 								<v-tab value="item">アイテム</v-tab>
 								<v-tab value="sword">刀剣男士</v-tab>
 							</v-tabs>
@@ -470,7 +505,7 @@
 								</v-alert>
 
 								<!-- 目標が複数のときだけタブを表示（全て / 目標アイテムごと） -->
-								<v-tabs v-if="result.targets.length > 1" v-model="resultTab" color="primary" show-arrows density="compact" class="mb-3">
+								<v-tabs v-if="result.targets.length > 1" v-model="resultTab" show-arrows density="compact" hide-slider class="box-tabs mb-3">
 									<v-tab value="all">全て</v-tab>
 									<v-tab v-for="t in result.targets" :key="t.id" :value="t.id">{{ nameOf(t.id) }}</v-tab>
 								</v-tabs>
@@ -547,6 +582,13 @@
 									<div v-for="u in result.unreachable" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
 									<div class="text-caption mt-2">
 										これらのアイテムは、入手できるマップがまだ登録されていないため、推奨マップには含まれていません。
+									</div>
+								</v-alert>
+								<v-alert v-if="result.noDrop.length" type="info" variant="tonal" density="compact" class="mb-4"
+									title="マップから入手できないアイテム">
+									<div v-for="u in result.noDrop" :key="u.id" class="mt-1">{{ nameOf(u.id) }}（あと{{ fmt(u.need) }}個）</div>
+									<div class="text-caption mt-2">
+										これらのアイテムは、マップからは入手できないため、推奨マップには含まれていません。
 									</div>
 								</v-alert>
 
@@ -687,6 +729,7 @@ const PuzCalc = (() => {
 		const seen = new Set();
 		const duplicated = new Set();
 		const emptyText = [];
+		const badNoDrop = [];
 		items.forEach((it, i) => {
 			const pos = `item.json の ${i + 1} 番目の要素`;
 			if (!isPlainObject(it)) {
@@ -704,6 +747,8 @@ const PuzCalc = (() => {
 				seen.add(it.id);
 				if (typeof it.text === 'string' && it.text.trim() === '') emptyText.push(it.id);
 			}
+			// no_drop（マップから入手できないアイテムの印）は任意。書くなら true / false
+			if (hasOwn(it, 'no_drop') && typeof it.no_drop !== 'boolean') badNoDrop.push(idOk ? it.id : pos);
 		});
 		if (duplicated.size) {
 			errors.push(`item.json: アイテムIDが重複しています:\n${[...duplicated].join('\n')}`);
@@ -711,7 +756,15 @@ const PuzCalc = (() => {
 		if (emptyText.length) {
 			warnings.push(`item.json: 名称（text）が空のアイテムがあります。目標の選択肢と所持数の一覧には表示しません:\n${emptyText.join('\n')}`);
 		}
+		if (badNoDrop.length) {
+			warnings.push(`item.json: no_drop が true / false ではないアイテムがあります。マップから入手できないアイテムとしては扱いません:\n${badNoDrop.join('\n')}`);
+		}
 		return { errors, warnings };
+	}
+
+	/** マップから入手できないアイテム（item.json で no_drop: true）のIDの集合 */
+	function buildNoDropSet(items) {
+		return new Set(items.filter((it) => it.no_drop === true).map((it) => it.id));
 	}
 
 	/** アイテムID → アイテム名 のインデックスを作成 */
@@ -1045,6 +1098,18 @@ const PuzCalc = (() => {
 		return shortages.filter((s) => !addressCounts.get(s.id));
 	}
 
+	/**
+	 * どのマップからも取得できない不足アイテムを、理由ごとに分ける。
+	 * noDrop      : マップから入手できないアイテム（item.json で no_drop: true）
+	 * unregistered: 入手できるマップが map.json に未登録のアイテム
+	 */
+	function splitUnreachableShortages(unreachable, noDropIds) {
+		return {
+			noDrop: unreachable.filter((s) => noDropIds.has(s.id)),
+			unregistered: unreachable.filter((s) => !noDropIds.has(s.id)),
+		};
+	}
+
 	// ---------------------------------------------------------------
 	// アドレス推薦（ヒューリスティック。取得確率は一切使わない）
 	// ---------------------------------------------------------------
@@ -1141,23 +1206,20 @@ const PuzCalc = (() => {
 	]);
 
 	/**
-	 * 刀剣男士レシピの検証。
-	 * 各段階の値は null（素材が未判明＝調査中）か、{ アイテムID: 数量 } のオブジェクト。
-	 * stages に書かれていない段階も調査中として扱う。
+	 * 刀剣男士マスタ（sword.json）の検証。
+	 * 各要素は { id: 刀剣男士ID, name: 名前, rare: レアかどうか }。並び順が刀剣男士selectの表示順になる。
 	 */
-	function validateSwordRecipes(list, nameMap) {
+	function validateSwordMaster(list) {
 		const errors = [];
 		const warnings = [];
 		if (!Array.isArray(list)) {
-			errors.push('sword_recipe.json: 刀剣男士レシピが配列ではありません。');
+			errors.push('sword.json: 刀剣男士マスタが配列ではありません。');
 			return { errors, warnings };
 		}
-		const stageKeys = new Set(SWORD_STAGES.map((s) => s.key));
 		const seen = new Set();
 		const duplicated = new Set();
-		const unknownIds = new Set();
 		list.forEach((sw, i) => {
-			const pos = `sword_recipe.json の ${i + 1} 番目の要素`;
+			const pos = `sword.json の ${i + 1} 番目の要素`;
 			if (!isPlainObject(sw)) {
 				errors.push(`${pos}: オブジェクトではありません。`);
 				return;
@@ -1167,15 +1229,52 @@ const PuzCalc = (() => {
 				if (seen.has(sw.id)) duplicated.add(sw.id);
 				seen.add(sw.id);
 			}
-			if (typeof sw.no !== 'string' || !/^\d{3}$/.test(sw.no)) errors.push(`${pos}: no が3桁の数字の文字列ではありません（${JSON.stringify(sw.no)}）。`);
 			if (typeof sw.name !== 'string' || sw.name.trim() === '') errors.push(`${pos}: name が空でない文字列ではありません。`);
 			if (typeof sw.rare !== 'boolean') errors.push(`${pos}: rare が true / false ではありません。`);
-			if (!isPlainObject(sw.stages)) {
+		});
+		if (duplicated.size) {
+			errors.push(`sword.json: 刀剣男士IDが重複しています:\n${[...duplicated].join('\n')}`);
+		}
+		return { errors, warnings };
+	}
+
+	/**
+	 * 刀剣男士レシピ（sword_recipe.json）の検証。
+	 * 各要素は { id: 刀剣男士ID, stages: { 段階キー: null または { アイテムID: 数量 } } }。
+	 * 段階の値は null（素材が未判明＝調査中）か、{ アイテムID: 数量 } のオブジェクト。
+	 * stages に書かれていない段階、レシピ自体がない刀剣男士も調査中として扱う。
+	 * swordNames: 刀剣男士ID → 名前（エラー表示用。マスタにないIDの検出にも使う）
+	 */
+	function validateSwordRecipes(list, nameMap, swordNames) {
+		const errors = [];
+		const warnings = [];
+		if (!Array.isArray(list)) {
+			errors.push('sword_recipe.json: 刀剣男士レシピが配列ではありません。');
+			return { errors, warnings };
+		}
+		const stageKeys = new Set(SWORD_STAGES.map((s) => s.key));
+		const seen = new Set();
+		const duplicated = new Set();
+		const unknownItemIds = new Set();
+		const unknownSwordIds = new Set();
+		list.forEach((rc, i) => {
+			const pos = `sword_recipe.json の ${i + 1} 番目の要素`;
+			if (!isPlainObject(rc)) {
+				errors.push(`${pos}: オブジェクトではありません。`);
+				return;
+			}
+			if (typeof rc.id !== 'string' || rc.id === '') errors.push(`${pos}: id が空でない文字列ではありません。`);
+			else {
+				if (seen.has(rc.id)) duplicated.add(rc.id);
+				seen.add(rc.id);
+				if (!swordNames.has(rc.id)) unknownSwordIds.add(rc.id);
+			}
+			if (!isPlainObject(rc.stages)) {
 				errors.push(`${pos}: stages がオブジェクトではありません。`);
 				return;
 			}
-			const label = typeof sw.name === 'string' && sw.name ? sw.name : pos;
-			for (const [stage, items] of Object.entries(sw.stages)) {
+			const label = swordNames.get(rc.id) || (typeof rc.id === 'string' && rc.id) || pos;
+			for (const [stage, items] of Object.entries(rc.stages)) {
 				if (!stageKeys.has(stage)) {
 					errors.push(`sword_recipe.json: 「${label}」に不明な強化段階があります（${stage}）。`);
 					continue;
@@ -1186,7 +1285,7 @@ const PuzCalc = (() => {
 					continue;
 				}
 				for (const [id, qty] of Object.entries(items)) {
-					if (!nameMap.has(id)) unknownIds.add(id);
+					if (!nameMap.has(id)) unknownItemIds.add(id);
 					if (!Number.isSafeInteger(qty) || qty <= 0) {
 						errors.push(`sword_recipe.json: 「${label}」の ${stage} →「${nameMap.get(id) || id}」の数量が不正です（${JSON.stringify(qty)}）。1以上の整数にしてください。`);
 					}
@@ -1196,10 +1295,28 @@ const PuzCalc = (() => {
 		if (duplicated.size) {
 			errors.push(`sword_recipe.json: 刀剣男士IDが重複しています:\n${[...duplicated].join('\n')}`);
 		}
-		if (unknownIds.size) {
-			errors.push(`sword_recipe.json: アイテムマスタに存在しないIDがあります:\n${[...unknownIds].join('\n')}`);
+		if (unknownSwordIds.size) {
+			errors.push(`sword_recipe.json: 刀剣男士マスタ（sword.json）に存在しないIDがあります:\n${[...unknownSwordIds].join('\n')}`);
+		}
+		if (unknownItemIds.size) {
+			errors.push(`sword_recipe.json: アイテムマスタに存在しないIDがあります:\n${[...unknownItemIds].join('\n')}`);
 		}
 		return { errors, warnings };
+	}
+
+	/**
+	 * 刀剣男士マスタとレシピを、画面で使う1人分の形 { id, name, rare, stages } にまとめる。
+	 * 並びはマスタ（sword.json）の順。レシピがない刀剣男士は stages を空（全段階が調査中）にする。
+	 * どちらも検証済みである前提。
+	 */
+	function buildSwords(masterList, recipeList) {
+		const stagesById = new Map(recipeList.map((rc) => [rc.id, rc.stages]));
+		return masterList.map((sw) => ({
+			id: sw.id,
+			name: sw.name,
+			rare: sw.rare,
+			stages: stagesById.get(sw.id) || {},
+		}));
 	}
 
 	/** 強化段階の素材が判明しているか（null・未記載・空オブジェクトは調査中） */
@@ -1209,11 +1326,21 @@ const PuzCalc = (() => {
 	}
 
 	/**
+	 * ID の配列を、rankMap（ID → 表示順）の順に並べ替えた新しい配列を返す。
+	 * 選んだ順ではなく、選択肢（v-select）と同じ並びで表示するために使う。
+	 * rankMap にない ID は末尾（元の並びのまま）。
+	 */
+	function sortIdsByRank(ids, rankMap) {
+		const rank = (id) => (rankMap.has(id) ? rankMap.get(id) : Number.MAX_SAFE_INTEGER);
+		return [...ids].sort((a, b) => rank(a) - rank(b));
+	}
+
+	/**
 	 * 選んだ刀剣男士×強化段階で必要なアイテムを合算する。
 	 * swords    : 刀剣男士ID → レシピ の Map
-	 * selections: [{ id: 刀剣男士ID, stages: [段階キー] }]（刀剣男士を選んだ順）
+	 * selections: [{ id: 刀剣男士ID, stages: [段階キー] }]（この並びで合算する。画面からは sword.json の順で渡す）
 	 * 戻り値: [{ id: アイテムID, qty: 合計, parts: [{ swordId, qty }] }]
-	 *   並びは、刀剣男士を選んだ順 → 段階順（SWORD_STAGES）→ レシピの記載順 で最初に出てきた順
+	 *   並びは、selections の順 → 段階順（SWORD_STAGES）→ レシピの記載順 で最初に出てきた順
 	 */
 	function sumSwordStageItems(swords, selections) {
 		const byItem = new Map();
@@ -1289,6 +1416,7 @@ const PuzCalc = (() => {
 		validateItemMaster,
 		buildItemNameMap,
 		buildItemOrderMap,
+		buildNoDropSet,
 		validateBom,
 		detectBomCycle,
 		topologicalSort,
@@ -1300,6 +1428,7 @@ const PuzCalc = (() => {
 		validateAddressTable,
 		buildItemAddressCounts,
 		findUnreachableShortages,
+		splitUnreachableShortages,
 		calculateAddressScore,
 		calculateAddressScores,
 		rankAddresses,
@@ -1310,8 +1439,11 @@ const PuzCalc = (() => {
 		hasKnownRecipe,
 		extractUnknownRecipes,
 		SWORD_STAGES,
+		validateSwordMaster,
 		validateSwordRecipes,
+		buildSwords,
 		hasKnownSwordStage,
+		sortIdsByRank,
 		sumSwordStageItems,
 	};
 })();
@@ -1336,11 +1468,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 		items: 'data/item.json',
 		bom: 'data/bom.json',
 		map: 'data/map.json',
-		swords: 'data/sword_recipe.json',
+		swords: 'data/sword.json',
+		swordRecipes: 'data/sword_recipe.json',
 	});
 
 	/** 所持数を保存する localStorage のキー */
 	const STORAGE_KEY = 'toupuzCalc.itemInventory';
+	/** 表示モード（'light' / 'dark'）を保存する localStorage のキー */
+	const THEME_STORAGE_KEY = 'toupuzCalc.theme';
 
 	/**
 	 * リリースノート（新しいものを先頭に追加する）。
@@ -1348,6 +1483,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	 *   body : 本文。\n で改行できる。長い行は画面幅に合わせて自動で折り返す
 	 */
 	const RELEASE_NOTES = Object.freeze([
+		{
+			title: '2026/10/08(木) ver 1.0.4',
+			body: '各アイテムの表示順を調整\n' +
+				'ライトモード・ダークモードの手動切替(デフォルト：ライトモード)',
+		},
 		{
 			title: '2026/10/07(水) ver 1.0.3',
 			body: '目標設定に「刀剣男士」タブを追加\n' +
@@ -1513,6 +1653,24 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 		}
 	}
 
+	/** 表示モードを復元する。保存がない・読めないときはライトモード */
+	function loadThemeMode() {
+		try {
+			return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+		} catch (e) {
+			return 'light';
+		}
+	}
+
+	/** 表示モードを保存する（保存できなくても切り替え自体はできる） */
+	function saveThemeMode(mode) {
+		try {
+			window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+		} catch (e) {
+			console.warn('[表示モード] 保存に失敗しました:', e);
+		}
+	}
+
 	// ---------------------------------------------------------------
 	// Vue アプリ
 	// ---------------------------------------------------------------
@@ -1536,8 +1694,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				topoOrder: [],
 				addressTable: {},
 				addressCounts: new Map(),
-				swords: [],              // 刀剣男士レシピ（sword_recipe.json の並び順）
-				swordMap: new Map(),     // 刀剣男士ID → レシピ
+				noDropIds: new Set(),    // マップから入手できないアイテムID（item.json で no_drop: true）
+				swords: [],              // 刀剣男士 { id, name, rare, stages }（sword.json の並び順）
+				swordMap: new Map(),     // 刀剣男士ID → 刀剣男士
 			});
 
 			const targetIds = ref([]);              // 目標アイテムID（選択した順）
@@ -1594,6 +1753,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			// メニュー（右端から引き出すパネル）
 			const menuOpen = ref(false);
+
+			// 表示モード（メニュー下部の切り替え。選んだモードはこのブラウザに保存する）
+			const theme = Vuetify.useTheme();
+			const themeMode = ref(theme.global.name.value === 'dark' ? 'dark' : 'light');
+			watch(themeMode, (mode) => {
+				if (mode !== 'light' && mode !== 'dark') return;
+				if (typeof theme.change === 'function') theme.change(mode);
+				else theme.global.name.value = mode;
+				saveThemeMode(mode);
+			});
 			/** メニュー項目の選択: パネルを閉じてから処理を行う */
 			const onMenu = (action) => {
 				menuOpen.value = false;
@@ -1699,8 +1868,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				};
 			}));
 
+			// 選んだ刀剣男士ID（選んだ順ではなく、刀剣男士selectと同じ sword.json の順）
+			const orderedSwordIds = computed(() => PuzCalc.sortIdsByRank(
+				swordIds.value,
+				new Map(master.value.swords.map((sw, i) => [sw.id, i])),
+			));
+
 			// 選んだ刀剣男士ごとの強化段階ボタン（素材が未判明の段階は調査中として押せない）
-			const swordStageRows = computed(() => swordIds.value.map((id) => {
+			const swordStageRows = computed(() => orderedSwordIds.value.map((id) => {
 				const sw = master.value.swordMap.get(id);
 				return {
 					id,
@@ -1714,12 +1889,41 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			// 選んだ刀剣男士×段階で必要なアイテムの合算（アイテムID → { qty, parts }）
 			const swordItems = computed(() => PuzCalc.sumSwordStageItems(
 				master.value.swordMap,
-				swordIds.value.map((id) => ({ id, stages: swordStageSel[id] || [] })),
+				orderedSwordIds.value.map((id) => ({ id, stages: swordStageSel[id] || [] })),
+			));
+
+			// 目標selectの選択肢（作成品 / 素材 に分けてアイテムマスタ順）
+			const targetGroups = computed(() => {
+				const { items, bom } = master.value;
+				// pending: 調査中の作成品（選択肢には出すが選べないようにする）
+				const craftables = items.filter((it) => PuzCalc.isCraftable(bom, it.id))
+					.map((it) => ({ ...it, pending: !PuzCalc.hasKnownRecipe(bom, it.id) }));
+				const materials = items.filter((it) => !PuzCalc.isCraftable(bom, it.id));
+				return [
+					{ label: '作成品', items: craftables },
+					{ label: '素材', items: materials },
+				].filter((g) => g.items.length);
+			});
+
+			// 目標selectの項目（見出し付き。調査中の作成品は選べない）
+			const targetSelectItems = computed(() => targetGroups.value.flatMap((g) => [
+				{ type: 'subheader', title: g.label },
+				...g.items.map((it) => ({
+					title: it.pending ? `${it.text}（調査中）` : it.text,
+					value: it.id,
+					props: { disabled: !!it.pending },
+				})),
+			]));
+
+			// 目標selectでの並び順（アイテムID → 何番目か。見出しは数えない）
+			const targetSelectRank = computed(() => new Map(
+				targetSelectItems.value.filter((x) => x.type !== 'subheader').map((x, i) => [x.value, i]),
 			));
 
 			/**
 			 * 必要数量の行（アイテムタブの目標と、刀剣男士由来のアイテムを合算して1アイテム1行）。
-			 * 並び: アイテムタブで選んだ順 → 刀剣男士由来だけのアイテム（sumSwordStageItems の順）
+			 * 並び: アイテムタブで選んだアイテム（目標selectと同じ順）→ 刀剣男士由来だけのアイテム（sumSwordStageItems の順）
+			 * 計算結果のタブ・目標ごとの文言・結果表の目標行も、この並びになる
 			 *   itemText : アイテムタブ側の数量の入力文字列（アイテムタブで選んでいないときは null）
 			 *   swordQty : 刀剣男士由来の数量の合計 / parts: その内訳
 			 *   key      : 上書き解除の判定に使う「合算の元」
@@ -1727,7 +1931,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			 */
 			const targetRows = computed(() => {
 				const swordById = new Map(swordItems.value.map((s) => [s.id, s]));
-				const ids = [...targetIds.value, ...swordItems.value.map((s) => s.id).filter((id) => !targetIds.value.includes(id))];
+				const itemIds = PuzCalc.sortIdsByRank(targetIds.value, targetSelectRank.value);
+				const ids = [...itemIds, ...swordItems.value.map((s) => s.id).filter((id) => !targetIds.value.includes(id))];
 				return ids.map((id) => {
 					const inItemTab = targetIds.value.includes(id);
 					const itemText = inItemTab ? String(targetQtyInputs[id] ?? '').trim() : null;
@@ -1767,29 +1972,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			function onResetTargetQty(id) {
 				delete targetOverrides[id];
 			}
-
-			// 目標selectの選択肢（作成品 / 素材 に分けてアイテムマスタ順）
-			const targetGroups = computed(() => {
-				const { items, bom } = master.value;
-				// pending: 調査中の作成品（選択肢には出すが選べないようにする）
-				const craftables = items.filter((it) => PuzCalc.isCraftable(bom, it.id))
-					.map((it) => ({ ...it, pending: !PuzCalc.hasKnownRecipe(bom, it.id) }));
-				const materials = items.filter((it) => !PuzCalc.isCraftable(bom, it.id));
-				return [
-					{ label: '作成品', items: craftables },
-					{ label: '素材', items: materials },
-				].filter((g) => g.items.length);
-			});
-
-			// 目標selectの項目（見出し付き。調査中の作成品は選べない）
-			const targetSelectItems = computed(() => targetGroups.value.flatMap((g) => [
-				{ type: 'subheader', title: g.label },
-				...g.items.map((it) => ({
-					title: it.pending ? `${it.text}（調査中）` : it.text,
-					value: it.id,
-					props: { disabled: !!it.pending },
-				})),
-			]));
 
 			// 表示中のタブの計算結果
 			const resultView = computed(() => {
@@ -1831,7 +2013,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			const isStale = computed(() => !!result.value && result.value.signature !== currentSignature());
 
 			// ----- 初期化 -----
-			function initialize(rawItems, rawBom, rawMap, rawSwords) {
+			function initialize(rawItems, rawBom, rawMap, rawSwords, rawSwordRecipes) {
 				const itemCheck = PuzCalc.validateItemMaster(rawItems);
 				const warnings = [...itemCheck.warnings];
 				if (itemCheck.errors.length) {
@@ -1843,12 +2025,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 				const bomCheck = PuzCalc.validateBom(rawBom, nameMap);
 				const mapCheck = PuzCalc.validateAddressTable(rawMap, nameMap);
-				const swordCheck = PuzCalc.validateSwordRecipes(rawSwords, nameMap);
-				const errors = [...bomCheck.errors, ...mapCheck.errors, ...swordCheck.errors];
-				warnings.push(...bomCheck.warnings, ...mapCheck.warnings, ...swordCheck.warnings);
+				// 刀剣男士: マスタ（sword.json）とレシピ（sword_recipe.json）を検証してから1人分の形にまとめる
+				const swordMasterCheck = PuzCalc.validateSwordMaster(rawSwords);
+				const swordNames = new Map(Array.isArray(rawSwords)
+					? rawSwords.filter((sw) => sw && typeof sw.id === 'string').map((sw) => [sw.id, sw.name])
+					: []);
+				const swordRecipeCheck = PuzCalc.validateSwordRecipes(rawSwordRecipes, nameMap, swordNames);
+				const swordErrors = [...swordMasterCheck.errors, ...swordRecipeCheck.errors];
+				const swords = swordErrors.length ? [] : PuzCalc.buildSwords(rawSwords, rawSwordRecipes);
+				const errors = [...bomCheck.errors, ...mapCheck.errors, ...swordErrors];
+				warnings.push(...bomCheck.warnings, ...mapCheck.warnings, ...swordMasterCheck.warnings, ...swordRecipeCheck.warnings);
 
 				const bom = rawBom && typeof rawBom === 'object' && !Array.isArray(rawBom) ? rawBom : {};
 				const topoOrder = errors.length ? [] : PuzCalc.topologicalSort(bom, orderMap);
+
+				// マップから入手できないアイテム。map.json にドロップ先があるものは、そちらを優先してマップ評価に含める
+				const noDropIds = PuzCalc.buildNoDropSet(rawItems);
+				const addressCounts = PuzCalc.buildItemAddressCounts(mapCheck.table);
+				const noDropButDropped = [...noDropIds].filter((id) => addressCounts.get(id));
+				if (noDropButDropped.length) {
+					warnings.push(`item.json で no_drop: true なのに、map.json にドロップ先が登録されているアイテムがあります。推奨マップの評価には含めます:\n${noDropButDropped.map((id) => nameMap.get(id) || id).join('\n')}`);
+				}
 
 				master.value = {
 					items: rawItems.filter((it) => it.text.trim() !== ''),
@@ -1857,10 +2054,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					bom,
 					topoOrder,
 					addressTable: mapCheck.table,
-					addressCounts: PuzCalc.buildItemAddressCounts(mapCheck.table),
-					// 刀剣男士レシピ（形式に誤りがある場合は使わない）
-					swords: swordCheck.errors.length ? [] : rawSwords,
-					swordMap: new Map(swordCheck.errors.length ? [] : rawSwords.map((sw) => [sw.id, sw])),
+					addressCounts,
+					noDropIds,
+					// 刀剣男士（マスタとレシピをまとめたもの。形式に誤りがある場合は使わない）
+					swords,
+					swordMap: new Map(swords.map((sw) => [sw.id, sw])),
 				};
 				reportDataProblems(errors, warnings);
 
@@ -1890,17 +2088,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			async function loadAll() {
 				try {
-					const [rawItems, rawBom, rawMap, rawSwords] = await Promise.all([
+					const [rawItems, rawBom, rawMap, rawSwords, rawSwordRecipes] = await Promise.all([
 						loadJson(DATA_FILES.items),
 						loadJson(DATA_FILES.bom),
 						loadJson(DATA_FILES.map),
 						loadJson(DATA_FILES.swords),
+						loadJson(DATA_FILES.swordRecipes),
 					]);
-					initialize(rawItems, rawBom, rawMap, rawSwords);
+					initialize(rawItems, rawBom, rawMap, rawSwords, rawSwordRecipes);
 				} catch (e) {
 					const hint = location.protocol === 'file:'
 						? '\nファイルを直接開いた場合、ブラウザの制限でJSONを読み込めません。Webサーバーに配置して開いてください。'
-						: '\ncalc.html と同じ場所に data フォルダ（item.json / bom.json / map.json / sword_recipe.json）があるか確認してください。';
+						: '\ncalc.html と同じ場所に data フォルダ（item.json / bom.json / map.json / sword.json / sword_recipe.json）があるか確認してください。';
 					reportDataProblems([(e && e.message ? e.message : String(e)) + hint], []);
 				} finally {
 					loading.value = false;
@@ -1996,7 +2195,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					return;
 				}
 
-				const { bom, topoOrder, addressTable, addressCounts, orderMap } = master.value;
+				const { bom, topoOrder, addressTable, addressCounts, noDropIds, orderMap } = master.value;
 				const inv = { ...inventory };  // 最新の所持数
 				const targets = qtyRows.map((r, i) => ({ id: r.id, qty: Number(qtyTexts[i]) }));
 				const ids = targets.map((t) => t.id);
@@ -2005,9 +2204,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				const rows = PuzCalc.calculateRequirements({ bom, topoOrder, targets, inventory: inv });
 				// 3. 不足アイテムの抽出
 				const shortages = PuzCalc.extractShortages(rows);
-				const unreachable = PuzCalc.findUnreachableShortages(shortages, addressCounts);
+				// どのマップからも取得できない不足アイテムを「マップから入手できない」「マップが未登録」に分ける
+				const { noDrop, unregistered: unreachable } = PuzCalc.splitUnreachableShortages(
+					PuzCalc.findUnreachableShortages(shortages, addressCounts), noDropIds);
 				if (unreachable.length) {
-					// 開発者向け: どのマップにも登録がない素材（map.json への追加漏れの可能性）
+					// 開発者向け: どのマップにも登録がない素材（map.json への追加漏れの可能性）。no_drop: true のものは除く
 					console.warn('[データ] 入手できるマップが map.json に登録されていないアイテム:', unreachable.map((u) => nameOf(u.id)).join('、'));
 				}
 
@@ -2058,7 +2259,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					rows,           // 全目標をまとめた結果（所持数一覧の「あと」表示・絞り込みに使う）
 					views,
 					shortages,
-					unreachable,
+					unreachable,    // 入手できるマップが未登録の不足アイテム
+					noDrop,         // マップから入手できない不足アイテム
 					unknownRecipes: views.all.unknownRecipes,
 					ranking,
 					signature: currentSignature(),
@@ -2091,17 +2293,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				nameOf, fmt, kindLabel, kindColor, qtyRule, needOf,
 				onInventoryInput, onCalculate,
 				dialogImport, importText, hasText, openImportDialog, onImport, onExport,
-				menuOpen, onMenu,
+				menuOpen, onMenu, themeMode,
 				sortieCode, sortieName, onSortie,
 			};
 		},
 	});
 
-	// ----- テーマ（端末のライト/ダーク設定に追従） -----
-	const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+	// ----- テーマ（初期はライトモード。メニューで切り替えたモードがあればそれを使う） -----
 	const vuetify = Vuetify.createVuetify({
 		theme: {
-			defaultTheme: darkQuery && darkQuery.matches ? 'dark' : 'light',
+			defaultTheme: loadThemeMode(),
 			themes: {
 				// 配色: ヘッダー=オレンジ / 背景=薄い黄色 / アクセント=黄緑（刀剣乱舞ぱずぎり公式サイトの印象に合わせる）
 				light: {
@@ -2131,14 +2332,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			},
 		},
 	});
-	if (darkQuery && darkQuery.addEventListener) {
-		darkQuery.addEventListener('change', (e) => {
-			const name = e.matches ? 'dark' : 'light';
-			if (typeof vuetify.theme.change === 'function') vuetify.theme.change(name);
-			else vuetify.theme.global.name.value = name;
-		});
-	}
-
 	app.use(vuetify).mount('#app');
 })();
 </script>
