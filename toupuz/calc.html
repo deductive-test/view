@@ -1892,32 +1892,23 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				orderedSwordIds.value.map((id) => ({ id, stages: swordStageSel[id] || [] })),
 			));
 
-			// 目標selectの選択肢（作成品 / 素材 に分けてアイテムマスタ順）
-			const targetGroups = computed(() => {
+			// 目標selectの項目（item.json の並び順そのまま。ゲーム内の並びと合わせてある）
+			// 調査中の作成品（レシピが {}）は選択肢には出すが、選べないようにする
+			const targetSelectItems = computed(() => {
 				const { items, bom } = master.value;
-				// pending: 調査中の作成品（選択肢には出すが選べないようにする）
-				const craftables = items.filter((it) => PuzCalc.isCraftable(bom, it.id))
-					.map((it) => ({ ...it, pending: !PuzCalc.hasKnownRecipe(bom, it.id) }));
-				const materials = items.filter((it) => !PuzCalc.isCraftable(bom, it.id));
-				return [
-					{ label: '作成品', items: craftables },
-					{ label: '素材', items: materials },
-				].filter((g) => g.items.length);
+				return items.map((it) => {
+					const pending = PuzCalc.isCraftable(bom, it.id) && !PuzCalc.hasKnownRecipe(bom, it.id);
+					return {
+						title: pending ? `${it.text}（調査中）` : it.text,
+						value: it.id,
+						props: { disabled: pending },
+					};
+				});
 			});
 
-			// 目標selectの項目（見出し付き。調査中の作成品は選べない）
-			const targetSelectItems = computed(() => targetGroups.value.flatMap((g) => [
-				{ type: 'subheader', title: g.label },
-				...g.items.map((it) => ({
-					title: it.pending ? `${it.text}（調査中）` : it.text,
-					value: it.id,
-					props: { disabled: !!it.pending },
-				})),
-			]));
-
-			// 目標selectでの並び順（アイテムID → 何番目か。見出しは数えない）
+			// 目標selectでの並び順（アイテムID → 何番目か）
 			const targetSelectRank = computed(() => new Map(
-				targetSelectItems.value.filter((x) => x.type !== 'subheader').map((x, i) => [x.value, i]),
+				targetSelectItems.value.map((x, i) => [x.value, i]),
 			));
 
 			/**
