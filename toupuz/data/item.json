@@ -52,6 +52,10 @@
 	,{"id":"crft011","text":"味噌"}
 	,{"id":"crft016","text":"そろばん"}
 	,{"id":"crft017","text":"二色おはぎ"}
+
+	,{"id":"item901","text":"赤の絵具","no_drop":true}
+	,{"id":"item902","text":"青の絵具","no_drop":true}
+	,{"id":"item903","text":"黄の絵具","no_drop":true}
 	
 	,{"id":"crft901","text":"短刀の心得"}
 	,{"id":"crft902","text":"脇差の心得"}
@@ -61,8 +65,4 @@
 	,{"id":"crft906","text":"槍の心得"}
 	,{"id":"crft907","text":"薙刀の心得"}
 	,{"id":"crft908","text":"剣の心得"}
-
-	,{"id":"item901","text":"赤の絵具","no_drop":true}
-	,{"id":"item902","text":"青の絵具","no_drop":true}
-	,{"id":"item903","text":"黄の絵具","no_drop":true}
 ]
