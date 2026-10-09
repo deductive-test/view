@@ -50,7 +50,7 @@
 
 	/* ===== 目標設定 ===== */
 	.field-label { display: block; font-size: .8rem; margin-bottom: 4px; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
-	/* 強化段階のボタン: 「（調査中）」が付いても幅に収まるよう、高さは内容に合わせる */
+	/* 強化段階のボタン: 「(調査中)」が付いても幅に収まるよう、高さは内容に合わせる */
 	.stage-toggle { height: auto !important; }
 	.stage-toggle .v-btn { height: auto !important; min-height: 36px; padding: 4px 6px !important; text-transform: none; letter-spacing: normal; }
 	.stage-label { line-height: 1.25; text-align: center; white-space: normal; }
@@ -59,7 +59,7 @@
 	.target-breakdown { display: block; margin-top: 2px; font-size: .72rem; line-height: 1.5; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.target-override { display: block; color: rgb(var(--v-theme-primary)); }
 	.target-reset { display: inline-block; margin-left: 4px; white-space: nowrap; }
-	/* 内訳の1項目（「＋ 三日月宗近（レア） 4」）は、なるべく途中で改行しない */
+	/* 内訳の1項目（「＋ 三日月宗近(レア) 4」）は、なるべく途中で改行しない */
 	.breakdown-part { display: inline-block; max-width: 100%; margin-right: .35em; }
 
 	/* ===== 所持数一覧 ===== */
@@ -313,7 +313,7 @@
 					<li><a href="data/item.json" target="_blank" rel="noopener">アイテムマスタ</a> - ドロップアイテム、合成アイテムを管理</li>
 					<li><a href="data/map.json" target="_blank" rel="noopener">マップマスタ</a> - 各マスごとのアイテムドロップを管理</li>
 					<li><a href="data/bom.json" target="_blank" rel="noopener">レシピマスタ</a> - 合成アイテムのレシピを管理</li>
-					<li><a href="data/sword.json" target="_blank" rel="noopener">刀剣男士マスタ</a> - 刀剣男士の名前、レアかどうかを管理</li>
+					<li><a href="data/sword.json" target="_blank" rel="noopener">刀剣男士マスタ</a> - 刀剣男士のIDと名前を管理</li>
 					<li><a href="data/sword_recipe.json" target="_blank" rel="noopener">刀剣男士レシピマスタ</a> - 刀剣男士の強化段階ごとに必要なアイテムを管理</li>
 				</ul>
 				<br>
@@ -395,7 +395,7 @@
 									<v-btn-toggle v-model="swordStageSel[s.id]" multiple divided density="compact"
 										variant="outlined" color="primary" class="filter-toggle stage-toggle">
 										<v-btn v-for="st in s.stages" :key="st.key" :value="st.key" :disabled="st.pending">
-											<span class="stage-label">{{ st.label }}<span v-if="st.pending" class="stage-pending">（調査中）</span></span>
+											<span class="stage-label">{{ st.label }}<span v-if="st.pending" class="stage-pending">(調査中)</span></span>
 										</v-btn>
 									</v-btn-toggle>
 								</div>
@@ -968,7 +968,7 @@ const PuzCalc = (() => {
 
 	/**
 	 * 計算結果の表示順を決める。
-	 *   1. 目標アイテム（選択した順）
+	 *   1. 目標アイテム（目標 select の順）
 	 *   2. 目標の直接の材料（bom.json に書かれた順。中間品・素材の区別なく、ゲームの表示と同じ並び）
 	 *      目標が複数のときは、1つ目の目標の材料 → 2つ目の目標の材料 … の順（重複は最初の位置）
 	 *   3. さらに分解して出てきたアイテム（item.json に書かれた順）
@@ -1207,7 +1207,7 @@ const PuzCalc = (() => {
 
 	/**
 	 * 刀剣男士マスタ（sword.json）の検証。
-	 * 各要素は { id: 刀剣男士ID, name: 名前, rare: レアかどうか }。並び順が刀剣男士selectの表示順になる。
+	 * 各要素は { id: 刀剣男士ID, name: 名前（表示名としてそのまま使う） }。並び順が刀剣男士selectの表示順になる。
 	 */
 	function validateSwordMaster(list) {
 		const errors = [];
@@ -1230,7 +1230,6 @@ const PuzCalc = (() => {
 				seen.add(sw.id);
 			}
 			if (typeof sw.name !== 'string' || sw.name.trim() === '') errors.push(`${pos}: name が空でない文字列ではありません。`);
-			if (typeof sw.rare !== 'boolean') errors.push(`${pos}: rare が true / false ではありません。`);
 		});
 		if (duplicated.size) {
 			errors.push(`sword.json: 刀剣男士IDが重複しています:\n${[...duplicated].join('\n')}`);
@@ -1305,7 +1304,7 @@ const PuzCalc = (() => {
 	}
 
 	/**
-	 * 刀剣男士マスタとレシピを、画面で使う1人分の形 { id, name, rare, stages } にまとめる。
+	 * 刀剣男士マスタとレシピを、画面で使う1人分の形 { id, name, stages } にまとめる。
 	 * 並びはマスタ（sword.json）の順。レシピがない刀剣男士は stages を空（全段階が調査中）にする。
 	 * どちらも検証済みである前提。
 	 */
@@ -1314,7 +1313,6 @@ const PuzCalc = (() => {
 		return masterList.map((sw) => ({
 			id: sw.id,
 			name: sw.name,
-			rare: sw.rare,
 			stages: stagesById.get(sw.id) || {},
 		}));
 	}
@@ -1697,7 +1695,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				addressTable: {},
 				addressCounts: new Map(),
 				noDropIds: new Set(),    // マップから入手できないアイテムID（item.json で no_drop: true）
-				swords: [],              // 刀剣男士 { id, name, rare, stages }（sword.json の並び順）
+				swords: [],              // 刀剣男士 { id, name, stages }（sword.json の並び順）
 				swordMap: new Map(),     // 刀剣男士ID → 刀剣男士
 			});
 
@@ -1739,10 +1737,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			const result = shallowRef(null);
 			const snackbar = reactive({ show: false, text: '', color: 'error' });
 
-			// about ダイアログ
 			// リリースノートダイアログ
 			const dialogReleaseNotes = reactive({ isShow: false });
 
+			// about ダイアログ
 			const dialogAbout = reactive({
 				isShow: false,
 				persistent: false,
@@ -1853,18 +1851,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			// ----- 算出プロパティ -----
 			const canCalculate = computed(() => ready.value && dataErrors.value.length === 0 && targetRows.value.length > 0);
 
-			// 刀剣男士の表示名（レアは「三日月宗近（レア）」）
+			// 刀剣男士の表示名（sword.json の name をそのまま使う）
 			const swordLabel = (id) => {
 				const sw = master.value.swordMap.get(id);
 				if (!sw) return '';
-				return sw.rare ? `${sw.name}（レア）` : sw.name;
+				return sw.name;
 			};
 
 			// 刀剣男士selectの項目（どの段階も調査中の刀剣男士は選べない）
 			const swordSelectItems = computed(() => master.value.swords.map((sw) => {
 				const known = PuzCalc.SWORD_STAGES.some((s) => PuzCalc.hasKnownSwordStage(sw, s.key));
 				return {
-					title: known ? swordLabel(sw.id) : `${swordLabel(sw.id)}（調査中）`,
+					title: known ? swordLabel(sw.id) : `${swordLabel(sw.id)}(調査中)`,
 					value: sw.id,
 					props: { disabled: !known },
 				};
@@ -1901,7 +1899,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				return items.map((it) => {
 					const pending = PuzCalc.isCraftable(bom, it.id) && !PuzCalc.hasKnownRecipe(bom, it.id);
 					return {
-						title: pending ? `${it.text}（調査中）` : it.text,
+						title: pending ? `${it.text}(調査中)` : it.text,
 						value: it.id,
 						props: { disabled: pending },
 					};
