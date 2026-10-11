@@ -31,6 +31,7 @@
 	,{"id":"item033","text":"ウロコ"}
 	,{"id":"item027","text":"ネジ"}
 	,{"id":"crft005","text":"筆"}
+	,{"id":"crft007","text":"臼と杵"}
 	,{"id":"crft004","text":"紙"}
 	,{"id":"crft008","text":"お椀"}
 	,{"id":"item028","text":"みかげ石"}
@@ -47,7 +48,6 @@
 	,{"id":"crft003","text":"鍬"}
 	,{"id":"item031","text":"羽衣"}
 
-	,{"id":"crft007","text":"臼と杵"}
 	,{"id":"crft009","text":"お茶碗"}
 	,{"id":"crft011","text":"味噌"}
 	,{"id":"crft016","text":"そろばん"}
