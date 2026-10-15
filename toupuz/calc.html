@@ -168,7 +168,7 @@
 	<v-app-bar color="primary" density="comfortable" flat>
 		<v-app-bar-title>
 			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.5</span>
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.6</span>
 		</v-app-bar-title>
 		<template v-slot:append>
 			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
@@ -1484,6 +1484,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	 *   body : 本文。\n で改行できる。長い行は画面幅に合わせて自動で折り返す
 	 */
 	const RELEASE_NOTES = Object.freeze([
+		{
+			title: '2026/10/15(木) ver 1.0.6',
+			body: '・問合せ対応：レシピ追加：R歌仙30→35、R今剣10→20'
+		},
 		{
 			title: '2026/10/12(木) ver 1.0.5',
 			body: '・問合せ対応：インポート/エクスポートの説明を明記'
