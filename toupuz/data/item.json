@@ -38,6 +38,7 @@
 	,{"id":"item029","text":"ろうそく"}
 	,{"id":"item034","text":"手旗"}
 	,{"id":"item030","text":"天ぷら"}
+	,{"id":"item031","text":"羽衣"}
 	,{"id":"crft006","text":"とんかち"}
 	,{"id":"crft001","text":"すごろく"}
 	,{"id":"crft010","text":"囲碁"}
@@ -46,7 +47,6 @@
 	,{"id":"item032","text":"元結"}
 	,{"id":"crft012","text":"お味噌汁"}
 	,{"id":"crft003","text":"鍬"}
-	,{"id":"item031","text":"羽衣"}
 
 	,{"id":"crft009","text":"お茶碗"}
 	,{"id":"crft011","text":"味噌"}
