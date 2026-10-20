@@ -168,7 +168,7 @@
 	<v-app-bar color="primary" density="comfortable" flat>
 		<v-app-bar-title>
 			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.6</span>
+			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.7</span>
 		</v-app-bar-title>
 		<template v-slot:append>
 			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
@@ -733,6 +733,7 @@ const PuzCalc = (() => {
 		const duplicated = new Set();
 		const emptyText = [];
 		const badNoDrop = [];
+		const badNoShow = [];
 		items.forEach((it, i) => {
 			const pos = `item.json の ${i + 1} 番目の要素`;
 			if (!isPlainObject(it)) {
@@ -752,6 +753,8 @@ const PuzCalc = (() => {
 			}
 			// no_drop（マップから入手できないアイテムの印）は任意。書くなら true / false
 			if (hasOwn(it, 'no_drop') && typeof it.no_drop !== 'boolean') badNoDrop.push(idOk ? it.id : pos);
+			// no_show（目標selectに出さないアイテムの印）は任意。書くなら true / false
+			if (hasOwn(it, 'no_show') && typeof it.no_show !== 'boolean') badNoShow.push(idOk ? it.id : pos);
 		});
 		if (duplicated.size) {
 			errors.push(`item.json: アイテムIDが重複しています:\n${[...duplicated].join('\n')}`);
@@ -762,12 +765,20 @@ const PuzCalc = (() => {
 		if (badNoDrop.length) {
 			warnings.push(`item.json: no_drop が true / false ではないアイテムがあります。マップから入手できないアイテムとしては扱いません:\n${badNoDrop.join('\n')}`);
 		}
+		if (badNoShow.length) {
+			warnings.push(`item.json: no_show が true / false ではないアイテムがあります。目標の選択肢には表示します:\n${badNoShow.join('\n')}`);
+		}
 		return { errors, warnings };
 	}
 
 	/** マップから入手できないアイテム（item.json で no_drop: true）のIDの集合 */
 	function buildNoDropSet(items) {
 		return new Set(items.filter((it) => it.no_drop === true).map((it) => it.id));
+	}
+
+	/** 目標selectに出さないアイテム（item.json で no_show: true）のIDの集合 */
+	function buildNoShowSet(items) {
+		return new Set(items.filter((it) => it.no_show === true).map((it) => it.id));
 	}
 
 	/** アイテムID → アイテム名 のインデックスを作成 */
@@ -1418,6 +1429,7 @@ const PuzCalc = (() => {
 		buildItemNameMap,
 		buildItemOrderMap,
 		buildNoDropSet,
+		buildNoShowSet,
 		validateBom,
 		detectBomCycle,
 		topologicalSort,
@@ -1477,6 +1489,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	const STORAGE_KEY = 'toupuzCalc.itemInventory';
 	/** 表示モード（'light' / 'dark'）を保存する localStorage のキー */
 	const THEME_STORAGE_KEY = 'toupuzCalc.theme';
+	/** どのマップでも必ずドロップするため、所持数の「出陣中」タブの末尾に常に表示するアイテムID（小判。map.json のドロップには書かない） */
+	const SORTIE_TAIL_ITEM_ID = 'item000';
 
 	/**
 	 * リリースノート（新しいものを先頭に追加する）。
@@ -1484,6 +1498,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	 *   body : 本文。\n で改行できる。長い行は画面幅に合わせて自動で折り返す
 	 */
 	const RELEASE_NOTES = Object.freeze([
+		{
+			title: '2026/10/20(火) ver 1.0.7',
+			body:'・所持数欄に小判の在庫管理を追加(出陣中タブでも入力可能)'
+				+ '\n・レシピ追加：R乱藤四郎30→35、秋田藤四郎30→35、陸奥守吉行(勇気百寸)10→20/20→30'
+				+ '\n・アイテム表示順、刀剣男士一覧の微調整'
+		},
 		{
 			title: '2026/10/15(木) ver 1.0.6',
 			body: '・問合せ対応：レシピ追加：R歌仙30→35、R今剣10→20'
@@ -1707,6 +1727,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				addressTable: {},
 				addressCounts: new Map(),
 				noDropIds: new Set(),    // マップから入手できないアイテムID（item.json で no_drop: true）
+				noShowIds: new Set(),    // 目標selectに出さないアイテムID（item.json で no_show: true）
 				swords: [],              // 刀剣男士 { id, name, stages }（sword.json の並び順）
 				swordMap: new Map(),     // 刀剣男士ID → 刀剣男士
 			});
@@ -1907,9 +1928,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			// 目標selectの項目（item.json の並び順そのまま。ゲーム内の並びと合わせてある）
 			// 調査中の作成品（レシピが {}）は選択肢には出すが、選べないようにする
+			// item.json で no_show: true のアイテムは選択肢に出さない
 			const targetSelectItems = computed(() => {
-				const { items, bom } = master.value;
-				return items.map((it) => {
+				const { items, bom, noShowIds } = master.value;
+				return items.filter((it) => !noShowIds.has(it.id)).map((it) => {
 					const pending = PuzCalc.isCraftable(bom, it.id) && !PuzCalc.hasKnownRecipe(bom, it.id);
 					return {
 						title: pending ? `${it.text}(調査中)` : it.text,
@@ -2000,13 +2022,22 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			// 所持数一覧（検索・絞り込み）
 			const inventoryRows = computed(() => {
 				const keyword = (inventorySearch.value || '').trim().toLowerCase();
-				return master.value.items.filter((it) => {
-					if (keyword && !it.text.toLowerCase().includes(keyword)) return false;
+				const matches = (it) => !keyword || it.text.toLowerCase().includes(keyword);
+				const isSortie = inventoryFilter.value === 'sortie';
+				const rows = master.value.items.filter((it) => {
+					if (!matches(it)) return false;
 					if (inventoryFilter.value === 'nonzero') return (inventory[it.id] || 0) > 0;
 					if (inventoryFilter.value === 'short') return needOf(it.id) > 0;
-					if (inventoryFilter.value === 'sortie') return sortieDrops.value.has(it.id);
+					// 出陣中タブの末尾に置くアイテムは、ドロップに含まれていても下で1行だけ足す
+					if (isSortie) return it.id !== SORTIE_TAIL_ITEM_ID && sortieDrops.value.has(it.id);
 					return true;
 				});
+				// 出陣中のマップがあるときは、ドロップ品の後の一番下に表示する（検索条件は他の行と同じく適用）
+				if (isSortie && sortieCode.value) {
+					const tail = master.value.items.find((it) => it.id === SORTIE_TAIL_ITEM_ID);
+					if (tail && matches(tail)) rows.push(tail);
+				}
+				return rows;
 			});
 
 			// 計算後に入力が変わったか
@@ -2060,6 +2091,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 					addressTable: mapCheck.table,
 					addressCounts,
 					noDropIds,
+					noShowIds: PuzCalc.buildNoShowSet(rawItems),
 					// 刀剣男士（マスタとレシピをまとめたもの。形式に誤りがある場合は使わない）
 					swords,
 					swordMap: new Map(swords.map((sw) => [sw.id, sw])),

@@ -65,4 +65,6 @@
 	,{"id":"crft906","text":"槍の心得"}
 	,{"id":"crft907","text":"薙刀の心得"}
 	,{"id":"crft908","text":"剣の心得"}
+
+	,{"id":"item000","text":"小判","no_show":true}
 ]
