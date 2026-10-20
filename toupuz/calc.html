@@ -461,7 +461,7 @@
 							<v-btn-toggle v-model="inventoryFilter" mandatory divided density="compact"
 								variant="outlined" color="primary" class="filter-toggle mb-3">
 								<v-btn value="all">すべて</v-btn>
-								<v-btn value="nonzero">0以外</v-btn>
+								<v-btn v-if="showNonzeroFilter" value="nonzero">0以外</v-btn>
 								<v-btn value="short" :disabled="!result">不足中</v-btn>
 								<v-btn value="sortie" :disabled="!sortieCode">出陣中</v-btn>
 							</v-btn-toggle>
@@ -1491,6 +1491,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 	const THEME_STORAGE_KEY = 'toupuzCalc.theme';
 	/** どのマップでも必ずドロップするため、所持数の「出陣中」タブの末尾に常に表示するアイテムID（小判。map.json のドロップには書かない） */
 	const SORTIE_TAIL_ITEM_ID = 'item000';
+	/** 所持数の「0以外」タブを表示するか。使い所が無いため非表示。復活させるときは true にする（絞り込み処理は inventoryRows に残してある） */
+	const SHOW_NONZERO_FILTER = false;
 
 	/**
 	 * リリースノート（新しいものを先頭に追加する）。
@@ -2333,6 +2335,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				dialogImport, importText, hasText, openImportDialog, onImport, onExport,
 				menuOpen, onMenu, themeMode,
 				sortieCode, sortieName, onSortie,
+				showNonzeroFilter: SHOW_NONZERO_FILTER,
 			};
 		},
 	});
