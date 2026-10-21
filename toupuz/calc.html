@@ -6,26 +6,9 @@
 <title>刀剣乱舞 ぱずぎり 素材計算ツール</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.css">
+<!-- calc.html / event.html 共通のスタイル -->
+<link rel="stylesheet" href="components/common.css">
 <style>
-	/* ===== 全体 ===== */
-	html { overflow-y: auto; }
-	body { margin: 0; }
-	.page { max-width: 1280px; }
-	.pre-line { white-space: pre-line; }
-	.num { font-variant-numeric: tabular-nums; }
-	.v-app-bar-title { font-weight: 700; }
-	.section-title { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
-	.muted { color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
-	/* リンク: テーマの濃いオレンジ（訪問済み・ホバーでも色は変えない） */
-	a { color: rgb(var(--v-theme-link)); }
-	/* 箇条書き: 行頭の「・」が p タグの左端と揃うよう、1文字分右へ */
-	ul { padding-left: 1em; }
-	.note { font-size: .8rem; line-height: 1.6; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
-
-	/* ===== メニュー ===== */
-	/* ライト/ダークの切り替え: メニュー項目の下に、パネルの幅いっぱいで置く */
-	.theme-switch { padding: 4px 16px 16px; }
-
 	/* ===== タブ（目標設定・計算結果） ===== */
 	/* タブだと分かるよう、見出しタブの形にする（選択中=塗りつぶし / それ以外=枠線）。
 	   下線でタブの列と中身をつなぎ、ボタン群（v-btn-toggle）とは形で見分けられるようにする */
@@ -62,19 +45,8 @@
 	/* 内訳の1項目（「＋ 三日月宗近(レア) 4」）は、なるべく途中で改行しない */
 	.breakdown-part { display: inline-block; max-width: 100%; margin-right: .35em; }
 
-	/* ===== 所持数一覧 ===== */
-	.inventory-list { max-height: 560px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
-	.inventory-row {
-		display: flex; align-items: center; gap: 12px;
-		padding: 6px 0;
-		border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-	}
-	.inventory-row:last-child { border-bottom: none; }
-	.inventory-name { flex: 1 1 auto; min-width: 0; font-size: .95rem; cursor: pointer; }
+	/* ===== 所持数一覧（一覧・入力欄のスタイルは components/common.css） ===== */
 	.inventory-need { display: inline-block; margin-left: 6px; font-size: .75rem; color: rgb(var(--v-theme-error)); white-space: nowrap; }
-	.inventory-input { flex: 0 0 116px; }
-	.filter-toggle { width: 100%; }
-	.filter-toggle .v-btn { flex: 1 1 0; }
 
 	/* ===== 結果テーブル ===== */
 	.result-table th { white-space: nowrap; }
@@ -94,10 +66,6 @@
 	.addr-code { font-weight: 700; white-space: nowrap; }
 	.addr-name { font-size: .8rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-	/* リリースノート: 本文は \n で改行し、長い行は折り返す */
-	.release-note__title { font-weight: 700; }
-	.release-note__body { margin-top: 4px; white-space: pre-line; overflow-wrap: anywhere; }
-	.release-note--sep { border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); }
 	/* 自動スクロールで移動したとき、固定ヘッダーの裏に隠れないようにする */
 	#result-card, #inventory-card { scroll-margin-top: 64px; }
 	/* 出陣中のマップ行（推奨マップ）と、所持数の出陣中タブの見出し */
@@ -111,25 +79,6 @@
 
 	/* ===== スマホ幅 ===== */
 	@media (max-width: 599px) {
-		/* ヘッダー: タイトルを少し小さくし、バージョンはタイトルの下の行に表示 */
-		.v-app-bar-title { font-size: 1.1rem; line-height: 1.25; }
-		.v-app-bar-title .app-version { display: block; margin-left: 0 !important; line-height: 1.2; }
-		/* 右側のボタン（報告・info）を少し小さくして、タイトルの幅を確保 */
-		.v-app-bar .v-toolbar__append { margin-inline-end: 4px; }
-		.v-app-bar .v-toolbar__append .v-btn { width: 40px; height: 40px; }
-		.v-app-bar .v-toolbar-title { margin-inline-start: 12px; }
-	}
-	@media (max-width: 419px) {
-		/* 一般的なスマホ幅ではタイトルが切れないよう、もう一段小さくする */
-		.v-app-bar-title { font-size: .98rem; }
-	}
-	@media (max-width: 359px) {
-		/* さらに狭い端末 */
-		.v-app-bar-title { font-size: .85rem; }
-	}
-	@media (max-width: 599px) {
-		/* 所持数: 5件と6件目の半分まで見せ、残りは一覧の中でスクロール（1行 = 約53px） */
-		.inventory-list { max-height: calc(53px * 5.5); }
 		/* 結果表: 区分列をアイテム名の下に移して4列に収める */
 		.result-table .kind-col { display: none; }
 		.kind-inline { display: block; margin-top: 2px; }
@@ -165,179 +114,9 @@
 <!-- ===== 画面テンプレート（Vueのテンプレートコンパイラで解釈させるため x-template に置く） ===== -->
 <script type="text/x-template" id="app-template">
 <v-app>
-	<v-app-bar color="primary" density="comfortable" flat>
-		<v-app-bar-title>
-			刀剣乱舞 ぱずぎり 素材計算ツール
-			<span class="app-version text-caption ml-2" style="opacity:.8">ver 1.0.7</span>
-		</v-app-bar-title>
-		<template v-slot:append>
-			<v-btn icon="mdi-menu" aria-label="メニュー" title="メニュー" @click="menuOpen = !menuOpen"></v-btn>
-		</template>
-	</v-app-bar>
-
-	<!-- メニュー（画面の右端から引き出すパネル）。項目を選ぶとパネルを閉じてから各処理を行う -->
-	<v-navigation-drawer v-model="menuOpen" location="right" temporary width="260">
-		<v-list density="comfortable" nav>
-			<v-list-item prepend-icon="mdi-tray-arrow-down" title="インポート" @click="onMenu(openImportDialog)"></v-list-item>
-			<v-list-item prepend-icon="mdi-tray-arrow-up" title="エクスポート" @click="onMenu(onExport)"></v-list-item>
-			<v-list-item prepend-icon="mdi-message-draw" title="報告" @click="onMenu(() => { dialogReport.isShow = true; })"></v-list-item>
-			<v-list-item prepend-icon="mdi-note-text-outline" title="リリースノート" @click="onMenu(() => { dialogReleaseNotes.isShow = true; })"></v-list-item>
-			<v-list-item prepend-icon="mdi-information-outline" title="このサイトについて" @click="onMenu(() => { dialogAbout.isShow = true; })"></v-list-item>
-		</v-list>
-		<!-- ライトモード / ダークモードの切り替え（切り替えてもパネルは閉じない） -->
-		<div class="theme-switch">
-			<v-btn-toggle v-model="themeMode" mandatory divided density="compact"
-				variant="outlined" color="primary" class="filter-toggle" aria-label="表示モード">
-				<v-btn value="light" aria-label="ライトモード" title="ライトモード"><v-icon icon="mdi-white-balance-sunny"></v-icon></v-btn>
-				<v-btn value="dark" aria-label="ダークモード" title="ダークモード"><v-icon icon="mdi-weather-night"></v-icon></v-btn>
-			</v-btn-toggle>
-		</div>
-	</v-navigation-drawer>
-
-	<!-- インポートダイアログ -->
-	<v-dialog v-model="dialogImport.isShow" max-width="600" scrollable>
-		<v-card>
-			<v-card-title class="text-center">インポート</v-card-title>
-			<v-divider></v-divider>
-			<v-card-text class="text-high-emphasis pt-3">
-				<p class="mb-1">「エクスポート」でコピーした設定を貼り付けてください。</p>
-				<p class="mb-1 text-medium-emphasis">
-					※「エクスポート」すると、設定がテキストとしてクリップボードにコピーされます。メモ帳などに貼り付けて保管しておき、インポートするときはその文字をすべてコピーして下の欄に貼り付けてください。
-				</p>
-				<p class="mb-4 text-error">インポートすると、現在の所持数はすべて上書きされます。</p>
-				<v-textarea
-					v-model="importText"
-					label="設定"
-					rows="5"
-					clearable
-					variant="outlined" density="comfortable"
-					hide-details
-				></v-textarea>
-			</v-card-text>
-			<v-divider></v-divider>
-			<v-card-actions>
-				<v-spacer></v-spacer>
-				<v-btn variant="flat" color="grey" prepend-icon="mdi-close" @click="dialogImport.isShow = false">キャンセル</v-btn>
-				<v-spacer></v-spacer>
-				<v-btn variant="flat" color="accent" prepend-icon="mdi-tray-arrow-down" :disabled="!hasText(importText)" @click="onImport">インポート</v-btn>
-				<v-spacer></v-spacer>
-			</v-card-actions>
-		</v-card>
-	</v-dialog>
-
-	<!-- 報告ダイアログ -->
-	<v-dialog v-model="dialogReport.isShow" :persistent="dialogReport.persistent" max-width="600" scrollable>
-		<v-card>
-			<v-card-title class="text-center">{{ dialogReport.title }}</v-card-title>
-			<v-divider></v-divider>
-			<v-card-text class="text-high-emphasis pt-3">
-				<p class="mb-4">
-					追加して欲しいデータ、バグなどの報告がございましたら、こちらから入力をお願い致します。不定期で順次対応していきます。
-				</p>
-				<v-select
-					v-model="reportForm.type"
-					:items="reportTypes"
-					label="種別"
-					variant="outlined" density="comfortable"
-					class="mb-2"
-					:disabled="reportSending"
-				></v-select>
-				<v-text-field
-					v-model="reportForm.title"
-					label="タイトル"
-					variant="outlined" density="comfortable"
-					class="mb-2"
-					clearable
-					:maxlength="reportLimits.title" :counter="reportLimits.title"
-					:disabled="reportSending"
-				></v-text-field>
-				<v-textarea
-					v-model="reportForm.body"
-					label="本文"
-					rows="3"
-					clearable
-					:maxlength="reportLimits.body" :counter="reportLimits.body"
-					:disabled="reportSending"
-					variant="outlined" density="comfortable"
-				></v-textarea>
-			</v-card-text>
-			<v-divider></v-divider>
-			<v-card-actions>
-				<v-spacer></v-spacer>
-				<v-btn variant="flat" color="grey" prepend-icon="mdi-close" :disabled="reportSending" @click="dialogReport.isShow = false">キャンセル</v-btn>
-				<v-spacer></v-spacer>
-				<v-btn variant="flat" color="accent" prepend-icon="mdi-send" :disabled="!canSubmitReport" :loading="reportSending" @click="onReportSubmit">&emsp;送信&emsp;</v-btn>
-				<v-spacer></v-spacer>
-			</v-card-actions>
-		</v-card>
-	</v-dialog>
-
-	<!-- リリースノートダイアログ -->
-	<v-dialog v-model="dialogReleaseNotes.isShow" max-width="600" scrollable>
-		<v-card>
-			<v-card-title class="text-center">リリースノート</v-card-title>
-			<v-divider></v-divider>
-			<v-card-text class="text-high-emphasis pt-3">
-				<div v-for="(note, i) in releaseNotes" :key="i" class="release-note" :class="{ 'mt-4 pt-4 release-note--sep': i > 0 }">
-					<div class="release-note__title">{{ note.title }}</div>
-					<div class="release-note__body">{{ note.body }}</div>
-				</div>
-			</v-card-text>
-			<v-divider></v-divider>
-			<v-card-actions>
-				<v-spacer></v-spacer>
-				<v-btn variant="text" @click="dialogReleaseNotes.isShow = false">閉じる</v-btn>
-				<v-spacer></v-spacer>
-			</v-card-actions>
-		</v-card>
-	</v-dialog>
-
-	<!-- about ダイアログ -->
-	<v-dialog v-model="dialogAbout.isShow" :persistent="dialogAbout.persistent" max-width="600" scrollable>
-		<v-card>
-			<v-card-title v-if="dialogAbout.title" class="text-center">{{ dialogAbout.title }}</v-card-title>
-			<v-card-subtitle v-if="dialogAbout.subtitle" class="text-high-emphasis">{{ dialogAbout.subtitle }}</v-card-subtitle>
-			<v-divider></v-divider>
-			<v-card-text class="text-high-emphasis pt-3">
-				<p>
-					スマホアプリゲーム <a href="https://touken-puzzle.com/" target="_blank" rel="noopener">『刀剣乱舞 ぱずぎり』</a> の攻略を目的としたWEBツールです。
-				</p>
-				<p>
-					合成したいアイテムと、現在の所持アイテム数を入力すると、合成アイテムに必要な素材を得るために最も周回すべきマップを表示します。
-					<br><span class="muted">※周回マップで必ずしもアイテムがドロップするとは限りません。ドロップ率や法則などは未確定です。</span>
-					<br><span class="muted">※不足しているアイテムのうち、複数種類を同時に狙えること、不足数量、取得可能な場所の少なさをもとに計算した優先度で重み付けしています。</span>
-				</p>
-				<br>
-				<p>
-					アイテムやレシピは順次追加していきます。
-					<br>現在の設定値を確認したい場合は、それぞれ以下よりご確認ください。
-				</p>
-				<ul>
-					<li><a href="data/item.json" target="_blank" rel="noopener">アイテムマスタ</a> - ドロップアイテム、合成アイテムを管理</li>
-					<li><a href="data/map.json" target="_blank" rel="noopener">マップマスタ</a> - 各マスごとのアイテムドロップを管理</li>
-					<li><a href="data/bom.json" target="_blank" rel="noopener">レシピマスタ</a> - 合成アイテムのレシピを管理</li>
-					<li><a href="data/sword.json" target="_blank" rel="noopener">刀剣男士マスタ</a> - 刀剣男士のIDと名前を管理</li>
-					<li><a href="data/sword_recipe.json" target="_blank" rel="noopener">刀剣男士レシピマスタ</a> - 刀剣男士の強化段階ごとに必要なアイテムを管理</li>
-				</ul>
-				<br>
-				<p>
-					このサイトでは報告を受け付けています。
-					<br>追加してほしいデータ、バグ報告などがございましたら、「報告」からお送りください。
-					<br><span class="muted">※報告者の個人情報(ブラウザのログイン情報、IPアドレス、位置情報など)が送信されることはありません。</span>
-					<br><span class="muted">※個人の趣味で設置しておりますので、状況に応じて報告機能を制限することがあります。</span>
-				</p>
-				<br>
-				<p class="muted">Author: <a href="https://x.com/deductive_test" target="_blank" rel="noopener">@deductive_test</a></p>
-				<p class="muted">Last Update: {{lastModified}}</p>
-			</v-card-text>
-			<v-divider></v-divider>
-			<v-card-actions>
-				<v-spacer></v-spacer>
-				<v-btn variant="text" @click="dialogAbout.isShow = false">閉じる</v-btn>
-				<v-spacer></v-spacer>
-			</v-card-actions>
-		</v-card>
-	</v-dialog>
+	<!-- 共通ヘッダー・メニュー（components/layout/*.vue） -->
+	<layout-header @menu-click="menuOpen = !menuOpen"></layout-header>
+	<layout-menu v-model="menuOpen" page="calc"></layout-menu>
 
 	<v-main>
 		<v-container class="page py-4">
@@ -444,20 +223,10 @@
 						</v-card-text>
 					</v-card>
 
-					<!-- 所持数 -->
-					<v-card id="inventory-card" border flat>
-						<v-card-title class="section-title pt-4">所持数</v-card-title>
-						<v-card-subtitle class="pb-2">入力した値はこのブラウザに自動で保存されます</v-card-subtitle>
-						<v-card-text>
-							<v-text-field
-								v-model="inventorySearch"
-								label="アイテム名で検索"
-								prepend-inner-icon="mdi-magnify"
-								variant="outlined" density="compact"
-								clearable hide-details
-								class="mb-3"
-							></v-text-field>
-
+					<!-- 所持数（共通部品 components/parts/inventory-card.vue。絞り込み・「あとN」はこのページ固有） -->
+					<inventory-card id="inventory-card" :rows="inventoryRows" :inputs="inventoryInputs"
+						v-model:search="inventorySearch" @input="onInventoryInput">
+						<template #filter>
 							<v-btn-toggle v-model="inventoryFilter" mandatory divided density="compact"
 								variant="outlined" color="primary" class="filter-toggle mb-3">
 								<v-btn value="all">すべて</v-btn>
@@ -470,28 +239,9 @@
 								<v-icon icon="mdi-flag-variant" size="small" class="mr-1"></v-icon>
 								出陣中: {{ sortieCode }} {{ sortieName }}（ドロップする可能性のあるアイテム）
 							</div>
-
-							<div class="inventory-list">
-								<div v-for="it in inventoryRows" :key="it.id" class="inventory-row">
-									<label class="inventory-name" :for="'inv-' + it.id">
-										{{ it.text }}<span v-if="needOf(it.id) > 0" class="inventory-need">あと{{ fmt(needOf(it.id)) }}</span>
-									</label>
-									<v-text-field
-										:id="'inv-' + it.id"
-										class="inventory-input"
-										:model-value="inventoryInputs[it.id]"
-										@update:model-value="onInventoryInput(it.id, $event)"
-										type="number" min="0" step="1" inputmode="numeric"
-										placeholder="0"
-										variant="outlined" density="compact"
-										hide-details="auto"
-										:rules="[qtyRule]"
-									></v-text-field>
-								</div>
-								<div v-if="!inventoryRows.length" class="muted pa-3">該当するアイテムはありません。</div>
-							</div>
-						</v-card-text>
-					</v-card>
+						</template>
+						<template #name-suffix="{ item: it }"><span v-if="needOf(it.id) > 0" class="inventory-need">あと{{ fmt(needOf(it.id)) }}</span></template>
+					</inventory-card>
 				</v-col>
 
 				<!-- ===== 右列：計算結果・推奨アドレス ===== -->
@@ -668,6 +418,9 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script src="https://unpkg.com/vue@3.5.43/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader@0.9.5/dist/vue3-sfc-loader.js"></script>
+<!-- calc.html / event.html 共通の設定と処理（TouPuz） -->
+<script src="components/common.js"></script>
 
 <!-- ===================================================================
      計算ロジック（DOM・Vue・localStorage に依存しない純粋な処理のみ）
@@ -1374,54 +1127,7 @@ const PuzCalc = (() => {
 		return [...byItem.values()];
 	}
 
-	// ---------------------------------------------------------------
-	// 所持数データ
-	// ---------------------------------------------------------------
-
-	/**
-	 * 保存済み所持数の整理。
-	 * valid : アイテムマスタに存在するIDの、0以上の整数値のみ（計算に使用）
-	 * extras: アイテムマスタに存在しないID（計算には使わないが、保存データからは消さずに残す）
-	 */
-	function sanitizeInventory(raw, nameMap) {
-		const valid = {};
-		const extras = {};
-		if (!isPlainObject(raw)) return { valid, extras };
-		for (const [id, v] of Object.entries(raw)) {
-			if (!nameMap.has(id)) { extras[id] = v; continue; }
-			if (Number.isSafeInteger(v) && v >= 0) valid[id] = v;
-		}
-		return { valid, extras };
-	}
-
-	/** インポートで受け付ける文字数の上限（貼り付けミスで巨大な文字列が来た場合に備える） */
-	const IMPORT_MAX_LENGTH = 100000;
-
-	/**
-	 * インポートされた文字列（エクスポートした所持数のJSON）の検証。
-	 * 次をすべて満たすときだけ採用する:
-	 *   - JSONとして読めるオブジェクトである
-	 *   - すべての値が0以上の整数である
-	 *   - アイテムマスタに存在するIDを1つ以上含む
-	 * 戻り値: { ok: true, valid, extras } または { ok: false, reason }（reason は開発者向け）
-	 */
-	function parseInventoryImport(text, nameMap) {
-		const src = typeof text === 'string' ? text.trim() : '';
-		if (src === '') return { ok: false, reason: '入力が空です' };
-		if (src.length > IMPORT_MAX_LENGTH) return { ok: false, reason: '文字数が多すぎます' };
-		let raw;
-		try {
-			raw = JSON.parse(src);
-		} catch (e) {
-			return { ok: false, reason: 'JSONとして読み取れません' };
-		}
-		if (!isPlainObject(raw)) return { ok: false, reason: 'オブジェクト形式ではありません' };
-		const entries = Object.entries(raw);
-		const badKey = entries.find(([, v]) => !(Number.isSafeInteger(v) && v >= 0));
-		if (badKey) return { ok: false, reason: `0以上の整数ではない値があります: ${badKey[0]}` };
-		if (!entries.some(([id]) => nameMap.has(id))) return { ok: false, reason: 'アイテムマスタに存在するIDがありません' };
-		return { ok: true, ...sanitizeInventory(raw, nameMap) };
-	}
+	// 所持数データの整理（sanitizeInventory）は event.html と共通のため components/common.js にある
 
 	return {
 		SCORE_WEIGHTS,
@@ -1446,8 +1152,6 @@ const PuzCalc = (() => {
 		calculateAddressScores,
 		rankAddresses,
 		annotateMissingTargets,
-		sanitizeInventory,
-		parseInventoryImport,
 		isCraftable,
 		hasKnownRecipe,
 		extractUnknownRecipes,
@@ -1485,225 +1189,24 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 		swordRecipes: 'data/sword_recipe.json',
 	});
 
-	/** 所持数を保存する localStorage のキー */
-	const STORAGE_KEY = 'toupuzCalc.itemInventory';
-	/** 表示モード（'light' / 'dark'）を保存する localStorage のキー */
-	const THEME_STORAGE_KEY = 'toupuzCalc.theme';
+	/** 所持数を保存する localStorage のキー（components/common.js で定義） */
+	const STORAGE_KEY = TouPuz.STORAGE_KEYS.inventory;
 	/** どのマップでも必ずドロップするため、所持数の「出陣中」タブの末尾に常に表示するアイテムID（小判。map.json のドロップには書かない） */
-	const SORTIE_TAIL_ITEM_ID = 'item000';
+	const SORTIE_TAIL_ITEM_ID = 'item101';
 	/** 所持数の「0以外」タブを表示するか。使い所が無いため非表示。復活させるときは true にする（絞り込み処理は inventoryRows に残してある） */
 	const SHOW_NONZERO_FILTER = false;
-
-	/**
-	 * リリースノート（新しいものを先頭に追加する）。
-	 *   title: 1行目（日付とバージョンなど）
-	 *   body : 本文。\n で改行できる。長い行は画面幅に合わせて自動で折り返す
-	 */
-	const RELEASE_NOTES = Object.freeze([
-		{
-			title: '2026/10/20(火) ver 1.0.7',
-			body:'・所持数欄に小判の在庫管理を追加(出陣中タブでも入力可能)'
-				+ '\n・レシピ追加：R乱藤四郎30→35、秋田藤四郎30→35、陸奥守吉行(勇気百寸)10→20/20→30'
-				+ '\n・アイテム表示順、刀剣男士一覧の微調整'
-		},
-		{
-			title: '2026/10/15(木) ver 1.0.6',
-			body: '・問合せ対応：レシピ追加：R歌仙30→35、R今剣10→20'
-		},
-		{
-			title: '2026/10/12(木) ver 1.0.5',
-			body: '・問合せ対応：インポート/エクスポートの説明を明記'
-				+ '\n・レシピ追加'
-		},
-		{
-			title: '2026/10/08(木) ver 1.0.4',
-			body: '・問合せ対応：一部アイテムの表示順に対する報告の反映'
-						+'\n・アイテムv-selectの「作成品」「素材」グルーピングを廃止、ゲーム内表示と同じ表示順に換装'
-						+'\n・タブ(v-tabs)をタブっぽい見た目に調整'
-						+'\n・ライトモード/ダークモードの手動切替'
-		},
-		{
-			title: '2026/10/07(水) ver 1.0.3',
-			body: '目標設定に「刀剣男士」タブを追加\n' +
-				'刀剣男士の強化段階を選ぶと、必要なアイテムを目標に合算',
-		},
-		{
-			title: '2026/10/01(木) ver 1.0.2',
-			body: '出陣マップに絞った所有量記録機能',
-		},
-		{
-			title: '2026/09/30(水) ver 1.0.1',
-			body: '目標アイテムの複数選択機能を追加\n' +
-				'所持アイテム入力のインポート・エクスポート機能を追加',
-		},
-		{
-			title: '2026/09/29(火) ver 1.0.0',
-			body: 'リリース',
-		},
-	]);
 
 	/** アドレス優先度の説明文 */
 	const PRIORITY_EXPLANATION =
 		'この優先度は取得確率を表すものではありません。\n' +
 		'現在不足しているアイテムのうち、複数種類を同時に狙えること、不足数量、取得可能な場所の少なさをもとに計算した優先度です。';
 
-	const REPORT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxKIBuPLyoC6jIKFFY24brWgw3gHNXfiEK4uS5QJnS-G8awfbBmd8AR_buZnzZQj7Un/exec';
-
-	/** 報告の種別（報告ダイアログの選択肢）。GAS 側の CONFIG.TYPES と必ず揃える */
-	const REPORT_TYPES = Object.freeze(['アイテム', 'レシピ', 'その他']);
-
-	/** 報告の最大文字数。GAS 側の CONFIG.MAX_TITLE / MAX_BODY と揃える */
-	const REPORT_LIMITS = Object.freeze({ title: 100, body: 2000 });
-
-	/** 報告送信の待ち時間の上限（ミリ秒） */
-	const REPORT_TIMEOUT_MS = 20000;
-
-	/**
-	 * 日時を「2026/09/29(火) 17:58:23」の形式にする（閲覧者の端末の時刻で表示）。
-	 * 日時として解釈できない場合は空文字を返す。
-	 */
-	function formatDateTime(date) {
-		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-		const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
-		const pad = (n) => String(n).padStart(2, '0');
-		return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}` +
-			`(${WEEKDAYS[date.getDay()]}) ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-	}
-
 	/** 非負整数の入力か */
-	const isNonNegativeIntegerText = (text) => /^\d+$/.test(text) && Number.isSafeInteger(Number(text));
+	const isNonNegativeIntegerText = TouPuz.isNonNegativeIntegerText;
+	/** JSONを相対パスで読み込む（jQuery） */
+	const loadJson = TouPuz.loadJson;
 
-	// ---------------------------------------------------------------
-	// データ読み込み（jQuery）
-	// ---------------------------------------------------------------
-
-	/** JSONを相対パスで読み込む */
-	function loadJson(path) {
-		return new Promise((resolve, reject) => {
-			$.ajax({ url: path, dataType: 'json', cache: false })
-				.done((data) => resolve(data))
-				.fail((xhr, status) => {
-					const detail = status === 'parsererror'
-						? 'JSONの書式が正しくありません'
-						: `読み込めませんでした${xhr.status ? `（HTTP ${xhr.status}）` : ''}`;
-					reject(new Error(`${path}: ${detail}。`));
-				});
-		});
-	}
-
-	// ---------------------------------------------------------------
-	// 報告の送信（GAS ウェブアプリ）
-	// ---------------------------------------------------------------
-
-	/**
-	 * 報告を GAS に送信し、{ ok, code, message } を返す（例外は投げない）。
-	 * Content-Type を指定せずに文字列を送る（text/plain 扱い）ことで、
-	 * 別ドメインへの送信時に事前確認（preflight）が発生せず、GAS でも受け取れる。
-	 */
-	async function postReport(payload) {
-		if (!REPORT_ENDPOINT) return { ok: false, code: 'endpoint_not_set' };
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), REPORT_TIMEOUT_MS);
-		try {
-			const res = await fetch(REPORT_ENDPOINT, {
-				method: 'POST',
-				body: JSON.stringify(payload),
-				signal: controller.signal,
-			});
-			if (!res.ok) return { ok: false, code: `http_${res.status}` };
-			let data;
-			try {
-				data = await res.json();
-			} catch (e) {
-				return { ok: false, code: 'bad_response' };  // JSON以外（GASのエラーページ等）が返ってきた
-			}
-			if (!data || typeof data !== 'object') return { ok: false, code: 'bad_response' };
-			return { ok: data.ok === true, code: String(data.code || ''), message: String(data.message || '') };
-		} catch (e) {
-			return { ok: false, code: e && e.name === 'AbortError' ? 'timeout' : 'network_error' };
-		} finally {
-			clearTimeout(timer);
-		}
-	}
-
-	// ---------------------------------------------------------------
-	// クリップボード
-	// ---------------------------------------------------------------
-
-	/**
-	 * 文字列をクリップボードにコピーし、成功したら true を返す。
-	 * 通常は Clipboard API を使い、使えない環境（http で開いた場合など）では
-	 * 一時的なテキストエリア経由の旧来の方法で試す。
-	 */
-	async function copyToClipboard(text) {
-		try {
-			if (navigator.clipboard && window.isSecureContext) {
-				await navigator.clipboard.writeText(text);
-				return true;
-			}
-		} catch (e) {
-			console.warn('[エクスポート] Clipboard API でのコピーに失敗しました:', e);
-		}
-		try {
-			const ta = document.createElement('textarea');
-			ta.value = text;
-			ta.setAttribute('readonly', '');
-			ta.style.position = 'fixed';
-			ta.style.opacity = '0';
-			document.body.appendChild(ta);
-			ta.select();
-			const ok = document.execCommand('copy');
-			document.body.removeChild(ta);
-			return ok;
-		} catch (e) {
-			console.warn('[エクスポート] コピーに失敗しました:', e);
-			return false;
-		}
-	}
-
-	// ---------------------------------------------------------------
-	// 所持数の保存・復元（localStorage）
-	// ---------------------------------------------------------------
-
-	/** 所持数を復元する。壊れたデータや存在しないIDは計算に使わない */
-	function loadInventory(nameMap) {
-		let raw = null;
-		try {
-			const text = window.localStorage.getItem(STORAGE_KEY);
-			raw = text ? JSON.parse(text) : null;
-		} catch (e) {
-			raw = null;
-		}
-		return PuzCalc.sanitizeInventory(raw, nameMap);
-	}
-
-	/** 所持数を保存する。アイテムマスタにない古いIDの値も消さずに書き戻す */
-	function saveInventory(inventory, extras) {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...extras, ...inventory }));
-			return true;
-		} catch (e) {
-			return false;
-		}
-	}
-
-	/** 表示モードを復元する。保存がない・読めないときはライトモード */
-	function loadThemeMode() {
-		try {
-			return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
-		} catch (e) {
-			return 'light';
-		}
-	}
-
-	/** 表示モードを保存する（保存できなくても切り替え自体はできる） */
-	function saveThemeMode(mode) {
-		try {
-			window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-		} catch (e) {
-			console.warn('[表示モード] 保存に失敗しました:', e);
-		}
-	}
+	// 所持数の保存・復元（localStorage）は event.html と共通のため components/common.js（TouPuz.createInventoryState）にある
 
 	// ---------------------------------------------------------------
 	// Vue アプリ
@@ -1713,6 +1216,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 	const app = createApp({
 		template: '#app-template',
+		// 共通ヘッダー・メニュー（.vue ファイルを vue3-sfc-loader で読み込む）
+		components: {
+			'layout-header': TouPuz.vueLoader(`components/layout/header.vue?_=${Date.now()}`),
+			'layout-menu': TouPuz.vueLoader(`components/layout/menu.vue?_=${Date.now()}`),
+			// 所持数カード（event.html と共通）
+			'inventory-card': TouPuz.vueLoader(`components/parts/inventory-card.vue?_=${Date.now()}`),
+		},
 		setup() {
 			// ----- 状態 -----
 			const loading = ref(true);
@@ -1762,9 +1272,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			 * 刀剣男士・段階の選択変更などで key が変わったら上書きを解除し、合算値に戻す。
 			 */
 			const targetOverrides = reactive({});
-			const inventory = reactive({});        // アイテムID → 所持数（保存済みの確定値）
-			const inventoryInputs = reactive({});  // アイテムID → 入力欄の文字列
-			let inventoryExtras = {};              // アイテムマスタにない古いID（保存時に残すだけ）
+			// 所持数（保存・復元は components/common.js。event.html と同じ保存データを使う）
+			const inventoryState = TouPuz.createInventoryState();
+			const inventory = inventoryState.inventory;        // アイテムID → 所持数（保存済みの確定値）
+			const inventoryInputs = inventoryState.inputs;     // アイテムID → 入力欄の文字列
 
 			const inventorySearch = ref('');
 			const inventoryFilter = ref('all');
@@ -1772,91 +1283,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 			const result = shallowRef(null);
 			const snackbar = reactive({ show: false, text: '', color: 'error', timeout: 5000 });
 
-			// リリースノートダイアログ
-			const dialogReleaseNotes = reactive({ isShow: false });
-
-			// about ダイアログ
-			const dialogAbout = reactive({
-				isShow: false,
-				persistent: false,
-				title: 'このサイトについて',
-				subtitle: '',
-			});
-
-			// about ダイアログの最終更新日時（画面を読み込んだ時点の document.lastModified）
-			const lastModified = formatDateTime(new Date(document.lastModified));
-
-			// メニュー（右端から引き出すパネル）
+			// メニュー（画面の右端から引き出すパネル。中身は共通メニュー components/layout/menu.vue）
 			const menuOpen = ref(false);
-
-			// 表示モード（メニュー下部の切り替え。選んだモードはこのブラウザに保存する）
-			const theme = Vuetify.useTheme();
-			const themeMode = ref(theme.global.name.value === 'dark' ? 'dark' : 'light');
-			watch(themeMode, (mode) => {
-				if (mode !== 'light' && mode !== 'dark') return;
-				if (typeof theme.change === 'function') theme.change(mode);
-				else theme.global.name.value = mode;
-				saveThemeMode(mode);
-			});
-			/** メニュー項目の選択: パネルを閉じてから処理を行う */
-			const onMenu = (action) => {
-				menuOpen.value = false;
-				action();
-			};
-
-			// インポートダイアログ
-			const dialogImport = reactive({ isShow: false });
-			const importText = ref('');  // 貼り付けられた設定
-
-			// 報告ダイアログ
-			const dialogReport = reactive({
-				isShow: false,
-				persistent: false,
-				title: '報告',
-			});
-			// 報告フォームの入力内容（ダイアログを閉じても、送信するまでは入力を残す）
-			const reportForm = reactive({
-				type: null,   // 種別（REPORT_TYPES のいずれか）
-				title: '',    // タイトル（1行）
-				body: '',     // 本文（複数行）
-			});
-
-			/**
-			 * 報告を送信できるか。
-			 * 種別は必須、タイトルか本文の少なくとも一方に入力が必要。
-			 * 空白だけの入力や、消去ボタン（×）で値なし（null）になった欄は未入力として扱う。
-			 */
-			const hasText = (v) => typeof v === 'string' && v.trim() !== '';
-			const reportSending = ref(false);  // 送信中（二重送信防止・入力欄の無効化に使う）
-			const canSubmitReport = computed(() =>
-				!reportSending.value &&
-				REPORT_TYPES.includes(reportForm.type) && (hasText(reportForm.title) || hasText(reportForm.body)));
-
-			/** 報告の送信: 成功したら入力を消してダイアログを閉じる。失敗したら入力を残したまま知らせる */
-			async function onReportSubmit() {
-				if (!canSubmitReport.value) return;
-				reportSending.value = true;
-				try {
-					const res = await postReport({
-						type: reportForm.type,
-						title: hasText(reportForm.title) ? reportForm.title : '',
-						body: hasText(reportForm.body) ? reportForm.body : '',
-					});
-					if (res.ok) {
-						showSnack(res.message || '報告を受け付けました。', 'success');
-						reportForm.type = null;
-						reportForm.title = '';
-						reportForm.body = '';
-						dialogReport.isShow = false;
-					} else {
-						// 利用者にはざっくり表示し、原因（エラーコード）は開発者ツールのコンソールにだけ出す
-						console.warn('[報告] 送信に失敗しました:', res.code);
-						showSnack('エラーが発生しました');
-					}
-				} finally {
-					reportSending.value = false;
-				}
-			}
 
 			// ----- 表示用ヘルパー -----
 			const nameOf = (id) => {
@@ -1873,10 +1301,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				? '調査中' : ({ target: '目標', intermediate: '中間品', terminal: '素材' }[r.kind] || '');
 			const kindColor = (r) => (r.craftable && !r.recipeKnown && r.kind !== 'target')
 				? 'grey' : ({ target: 'primary', intermediate: 'info', terminal: undefined }[r.kind]);
-			const qtyRule = (v) => {
-				const text = v == null ? '' : String(v).trim();
-				return text === '' || isNonNegativeIntegerText(text) || '0以上の整数で入力してください';
-			};
+			const qtyRule = TouPuz.qtyRule;
 			const showSnack = (text, color = 'error', timeout = 5000) => {
 				snackbar.text = text;
 				snackbar.color = color;
@@ -2023,8 +1448,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			// 所持数一覧（検索・絞り込み）
 			const inventoryRows = computed(() => {
-				const keyword = (inventorySearch.value || '').trim().toLowerCase();
-				const matches = (it) => !keyword || it.text.toLowerCase().includes(keyword);
+				const matches = TouPuz.itemKeywordMatcher(inventorySearch.value);
 				const isSortie = inventoryFilter.value === 'sortie';
 				const rows = master.value.items.filter((it) => {
 					if (!matches(it)) return false;
@@ -2101,12 +1525,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				reportDataProblems(errors, warnings);
 
 				// 所持数の復元（保存がないアイテムは0）
-				const { valid, extras } = loadInventory(nameMap);
-				inventoryExtras = extras;
-				for (const it of rawItems) {
-					inventory[it.id] = hasValue(valid, it.id) ? valid[it.id] : 0;
-					inventoryInputs[it.id] = hasValue(valid, it.id) && valid[it.id] !== 0 ? String(valid[it.id]) : '';
-				}
+				inventoryState.restore(nameMap, rawItems.map((it) => it.id));
 
 				// 目標は未選択の状態から始める
 				ready.value = true;
@@ -2148,57 +1567,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 
 			/** 所持数の入力: 正しい値ならすぐ保存。不正な値は保存しない */
 			function onInventoryInput(id, value) {
-				const text = value == null ? '' : String(value).trim();
-				inventoryInputs[id] = text;
-				if (text === '') inventory[id] = 0;
-				else if (isNonNegativeIntegerText(text)) inventory[id] = Number(text);
-				else return;
-				if (!saveInventory({ ...inventory }, inventoryExtras)) {
+				if (!inventoryState.input(id, value)) {
 					showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
 				}
 			}
 
-			/** エクスポート: 所持数（localStorage に保存している内容）をクリップボードにコピー */
-			async function onExport() {
-				const text = JSON.stringify({ ...inventoryExtras, ...inventory });
-				if (await copyToClipboard(text)) {
-					// ファイルが保存されたと誤解されないよう、クリップボードへのコピーであることと使い方を長めに表示する
-					showSnack('設定をクリップボードにコピーしました（ファイルは作成されません）。\n' +
-						'メモ帳などに貼り付けて保管し、インポート時にその文字を貼り付けてください。', 'success', 10000);
-				} else {
-					showSnack('設定のコピーに失敗しました');
-				}
-			}
-
-			/** インポートダイアログを開く（前回の入力は残さない） */
-			function openImportDialog() {
-				importText.value = '';
-				dialogImport.isShow = true;
-			}
-
-			/** インポート: 貼り付けられた設定を検証し、問題なければ所持数を置き換えて保存 */
-			function onImport() {
-				const parsed = PuzCalc.parseInventoryImport(importText.value, master.value.nameMap);
-				if (!parsed.ok) {
-					console.warn('[インポート] 採用できない内容です:', parsed.reason);
-					showSnack('設定のインポートに失敗しました');
-					return;
-				}
-				// 所持数を丸ごと置き換える（インポートした内容にないアイテムは0）
-				for (const it of master.value.items) {
-					const v = hasValue(parsed.valid, it.id) ? parsed.valid[it.id] : 0;
-					inventory[it.id] = v;
-					inventoryInputs[it.id] = v !== 0 ? String(v) : '';
-				}
-				inventoryExtras = parsed.extras;
-				if (!saveInventory({ ...inventory }, inventoryExtras)) {
-					showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
-					return;
-				}
-				dialogImport.isShow = false;
-				importText.value = '';
-				showSnack('設定をインポートしました', 'success');
-			}
+			/**
+			 * 別のタブ・別のページで所持数が保存されたら、読み直して表示に反映する。
+			 * 読み直さないと、このタブで次に入力したときに古い所持数で上書きしてしまう。
+			 */
+			window.addEventListener('storage', (e) => {
+				if (e.key !== STORAGE_KEY || !ready.value) return;
+				inventoryState.reload();
+			});
 
 			/** 出陣: 選んだマップを出陣中にし、所持数を「出陣中」タブに切り替える */
 			function onSortie(code) {
@@ -2324,55 +1705,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = PuzCalc;
 				targetTab, swordIds, swordStageSel, swordSelectItems, swordStageRows, swordLabel,
 				targetRows, onTargetQtyInput, onResetTargetQty,
 				inventoryInputs, inventorySearch, inventoryFilter, inventoryRows,
-				result, isStale, snackbar, dialogAbout, lastModified,
-				dialogReport, reportForm, reportTypes: REPORT_TYPES, reportLimits: REPORT_LIMITS,
-				reportSending, canSubmitReport, onReportSubmit,
+				result, isStale, snackbar,
 				weights: PuzCalc.SCORE_WEIGHTS,
 				priorityExplanation: PRIORITY_EXPLANATION,
-				dialogReleaseNotes, releaseNotes: RELEASE_NOTES,
 				nameOf, fmt, kindLabel, kindColor, qtyRule, needOf,
 				onInventoryInput, onCalculate,
-				dialogImport, importText, hasText, openImportDialog, onImport, onExport,
-				menuOpen, onMenu, themeMode,
+				menuOpen,
 				sortieCode, sortieName, onSortie,
 				showNonzeroFilter: SHOW_NONZERO_FILTER,
 			};
 		},
 	});
 
-	// ----- テーマ（初期はライトモード。メニューで切り替えたモードがあればそれを使う） -----
-	const vuetify = Vuetify.createVuetify({
-		theme: {
-			defaultTheme: loadThemeMode(),
-			themes: {
-				// 配色: ヘッダー=オレンジ / 背景=薄い黄色 / アクセント=黄緑（刀剣乱舞ぱずぎり公式サイトの印象に合わせる）
-				light: {
-					colors: {
-						primary: '#d9661a',      // オレンジ（ヘッダー・選択状態）
-						'on-primary': '#ffffff',
-						accent: '#8cc63f',       // 黄緑（計算ボタン・「ここだけ」）
-						'on-accent': '#1f2d0a',
-						link: '#b3500f',         // 濃いオレンジ（aタグのリンク）
-						background: '#fdf6d8',   // 薄い黄色（ページ背景）
-						surface: '#fffdf4',      // カード
-						info: '#3d7a8c',
-					},
-				},
-				dark: {
-					colors: {
-						primary: '#f0914a',
-						'on-primary': '#1d1206',
-						accent: '#a6d65f',
-						'on-accent': '#15200a',
-						link: '#f39c5a',
-						background: '#1d1a12',
-						surface: '#29251a',
-						info: '#8cc3d1',
-					},
-				},
-			},
-		},
-	});
+	// ----- テーマ（初期はライトモード。メニューで切り替えたモードがあればそれを使う。配色は components/common.js） -----
+	const vuetify = TouPuz.createVuetify();
 	app.use(vuetify).mount('#app');
 })();
 </script>

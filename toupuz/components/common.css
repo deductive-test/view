@@ -1,0 +1,38 @@
+/* ===================================================================
+   calc.html / event.html で共通に使うスタイル
+   （ヘッダー・メニュー固有のものは components/layout/*.vue の <style> に置く）
+   =================================================================== */
+
+/* ===== 全体 ===== */
+html { overflow-y: auto; }
+body { margin: 0; }
+.page { max-width: 1280px; }
+.pre-line { white-space: pre-line; }
+.num { font-variant-numeric: tabular-nums; }
+.section-title { font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
+.muted { color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+/* リンク: テーマの濃いオレンジ（訪問済み・ホバーでも色は変えない） */
+a { color: rgb(var(--v-theme-link)); }
+/* 箇条書き: 行頭の「・」が p タグの左端と揃うよう、1文字分右へ */
+ul { padding-left: 1em; }
+.note { font-size: .8rem; line-height: 1.6; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+/* ボタン群（v-btn-toggle）を横幅いっぱいに均等に並べる */
+.filter-toggle { width: 100%; }
+.filter-toggle .v-btn { flex: 1 1 0; }
+
+/* ===== 所持数一覧（components/parts/inventory-card.vue）・必要数量の行（calc.html） ===== */
+.inventory-list { max-height: 560px; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.inventory-row {
+	display: flex; align-items: center; gap: 12px;
+	padding: 6px 0;
+	border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+.inventory-row:last-child { border-bottom: none; }
+.inventory-name { flex: 1 1 auto; min-width: 0; font-size: .95rem; cursor: pointer; }
+.inventory-input { flex: 0 0 116px; }
+
+/* ===== スマホ幅 ===== */
+@media (max-width: 599px) {
+	/* 所持数: 5件と6件目の半分まで見せ、残りは一覧の中でスクロール（1行 = 約53px） */
+	.inventory-list { max-height: calc(53px * 5.5); }
+}

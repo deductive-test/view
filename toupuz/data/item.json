@@ -66,5 +66,15 @@
 	,{"id":"crft907","text":"薙刀の心得"}
 	,{"id":"crft908","text":"剣の心得"}
 
-	,{"id":"item000","text":"小判","no_show":true}
+	,{"id":"item100","text":"宝玉","no_show":true}
+	,{"id":"item101","text":"小判","no_show":true}
+	,{"id":"item102","text":"経験値の書・小","no_show":true}
+	,{"id":"item103","text":"経験値の書・中","no_show":true}
+	,{"id":"item104","text":"経験値の書・大","no_show":true}
+	,{"id":"item105","text":"ハート回復薬・小","no_show":true}
+	,{"id":"item106","text":"ハート回復薬・中","no_show":true}
+	,{"id":"item107","text":"ハート回復薬・大","no_show":true}
+	,{"id":"item108","text":"絵馬経験値の勾玉・小","no_show":true}
+	,{"id":"item109","text":"絵馬経験値の勾玉・中","no_show":true}
+	,{"id":"item110","text":"絵馬経験値の勾玉・大","no_show":true}
 ]

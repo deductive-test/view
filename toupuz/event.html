@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>刀剣乱舞 ぱずぎり 素材計算ツール - イベント</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.css">
+<!-- calc.html / event.html 共通のスタイル -->
+<link rel="stylesheet" href="components/common.css">
+<style>
+	/* ===== イベント ===== */
+	.event-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+	/* +1 / +5 / +10 / −1 ボタン（横幅いっぱいに均等に並べる） */
+	.event-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+	.event-steps .v-btn { min-width: 0; text-transform: none; letter-spacing: normal; }
+	/* 目標まで / 1日のノルマ / 獲得済み */
+	.event-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+	.stat-tile {
+		padding: 10px 8px;
+		border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+		border-radius: 8px;
+		text-align: center;
+	}
+	.stat-tile__label { font-size: .75rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.stat-tile__value { font-size: 1.35rem; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+	.stat-tile__unit { margin-left: 2px; font-size: .75rem; font-weight: 400; }
+	/* 報酬の行（押すと目標にする。目標の行は色を付けて左に線を引く） */
+	.event-reward {
+		padding: 10px 8px;
+		border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+		border-left: 3px solid transparent;
+		cursor: pointer;
+	}
+	.event-reward:last-of-type { border-bottom: none; }
+	.event-reward:hover { background: rgba(var(--v-theme-on-surface), .04); }
+	/* 獲得済の行は背景を少しだけ灰色にする（ホバー時は少し濃く）。目標の指定より前に置き、目標でもある場合は目標の強調を優先させる */
+	.event-reward--done { background: rgba(var(--v-theme-on-surface), .05); }
+	.event-reward--done:hover { background: rgba(var(--v-theme-on-surface), .08); }
+	.event-reward--target, .event-reward--target:hover { background: rgba(var(--v-theme-primary), .14); border-left-color: rgb(var(--v-theme-primary)); }
+	.event-reward--done .reward-name, .event-reward--done .reward-point { color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.reward-head { display: flex; align-items: center; gap: 10px; }
+	.reward-point { flex: 0 0 auto; min-width: 4.5em; font-weight: 700; }
+	.reward-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+	/* 1行目に使わなかった sword_id の名前・text（1行目の下に1行ずつ小さく出す） */
+	.reward-sub { display: block; font-size: .8rem; line-height: 1.4; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	.reward-percent { flex: 0 0 auto; font-size: .85rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ===== 画面テンプレート（Vueのテンプレートコンパイラで解釈させるため x-template に置く） ===== -->
+<script type="text/x-template" id="app-template">
+<v-app>
+	<!-- 共通ヘッダー・メニュー（components/layout/*.vue） -->
+	<layout-header @menu-click="menuOpen = !menuOpen"></layout-header>
+	<layout-menu v-model="menuOpen" page="event"></layout-menu>
+
+	<v-main>
+		<v-container class="page py-4">
+
+			<!-- アイテムマスタを読み込めない（報酬の名前を出せず、所持数にも加算できない）。詳細は開発者向けにコンソールへ出力 -->
+			<v-alert v-if="itemLoadFailed" type="error" variant="tonal" class="mb-4">
+				<template v-if="autoApplyRewards">アイテムデータを読み込めなかったため、報酬を所持数に加算できません。</template>
+				<template v-else>アイテムデータを読み込めなかったため、報酬の名前と所持数を表示できません。</template>
+				時間をおいてページを再読み込みしてください。
+			</v-alert>
+
+			<!-- ===== イベント ===== -->
+			<div v-if="eventLoading" class="d-flex align-center ga-3 pa-6">
+				<v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+				<span>イベントデータを読み込んでいます…</span>
+			</div>
+			<v-alert v-else-if="eventLoadFailed" type="error" variant="tonal" class="mb-4">
+				イベントデータを読み込めませんでした。時間をおいてページを再読み込みしてください。
+			</v-alert>
+			<div v-else-if="!events.length" class="muted pa-3">登録されているイベントはありません。</div>
+			<v-alert v-if="eventPartialError" type="warning" variant="tonal" density="compact" class="mb-4">
+				イベントデータの一部に誤りがあるため、表示していないイベントがあります。
+			</v-alert>
+
+			<v-row v-if="eventView || ready">
+				<!-- ===== 左列：イベント・現在の数・目標までの状況・所持数 ===== -->
+				<v-col cols="12" md="5" lg="4">
+					<v-card v-if="eventView" class="mb-4" border flat>
+						<v-card-title class="section-title pt-4">イベント</v-card-title>
+						<v-card-text>
+							<v-select
+								v-model="selectedEventId"
+								:items="eventSelectItems"
+								label="イベント"
+								variant="outlined" density="comfortable"
+								hide-details
+								class="mb-3"
+							></v-select>
+							<div class="event-period mb-4">
+								<span class="num"><v-icon icon="mdi-calendar-range" size="small" class="mr-1"></v-icon>{{ eventView.period }}</span>
+								<v-chip size="small" label class="font-weight-bold"
+									:color="eventView.status === 'running' ? 'primary' : undefined"
+									:variant="eventView.status === 'running' ? 'flat' : 'tonal'">{{ eventView.remainingText }}</v-chip>
+							</div>
+
+							<!-- 現在のポイント（確定したときに、届いた報酬を所持数に加算する。AUTO_APPLY_REWARDS が false の間は保存だけ） -->
+							<v-text-field
+								v-model="eventPointText"
+								:label="'現在の' + eventView.event.pointName"
+								:suffix="eventView.event.pointUnit"
+								type="number" min="0" step="1" inputmode="numeric"
+								variant="outlined" density="comfortable"
+								hide-details="auto"
+								:rules="[qtyRule]"
+								:disabled="!ready"
+								class="mb-2"
+								@update:focused="(f) => { if (!f) onEventPointCommit(); }"
+								@keyup.enter="onEventPointCommit"
+							></v-text-field>
+							<div class="event-steps mb-4">
+								<v-btn v-for="d in [1, 5, 10]" :key="d" variant="tonal" color="primary" :disabled="!ready"
+									@click="onEventPointStep(d)">+{{ d }}</v-btn>
+								<v-btn variant="tonal" :disabled="!ready" @click="onEventPointStep(-1)">−1</v-btn>
+							</div>
+
+							<!-- 目標までの状況 -->
+							<div class="event-stats">
+								<div class="stat-tile">
+									<div class="stat-tile__label">目標まで</div>
+									<div class="stat-tile__value num">{{ fmt(eventView.rest) }}<span class="stat-tile__unit">{{ eventView.event.pointUnit }}</span></div>
+								</div>
+								<div class="stat-tile">
+									<div class="stat-tile__label">1日のノルマ</div>
+									<div class="stat-tile__value num">
+										<template v-if="eventView.quota === null">—</template>
+										<template v-else>{{ fmt(eventView.quota) }}<span class="stat-tile__unit">{{ eventView.event.pointUnit }}</span></template>
+									</div>
+								</div>
+								<div class="stat-tile">
+									<div class="stat-tile__label">獲得済み</div>
+									<div class="stat-tile__value num">{{ eventView.reachedCount }}<span class="stat-tile__unit">/ {{ eventView.rewards.length }}</span></div>
+								</div>
+							</div>
+						</v-card-text>
+					</v-card>
+
+					<!-- 所持数（calc.html と共通の部品 components/parts/inventory-card.vue。保存データも共通） -->
+					<inventory-card v-if="ready" :rows="inventoryRows" :inputs="inventoryState.inputs"
+						v-model:search="inventorySearch" @input="onInventoryInput"></inventory-card>
+				</v-col>
+
+				<!-- ===== 右列：報酬一覧 ===== -->
+				<v-col v-if="eventView" cols="12" md="7" lg="8">
+					<v-card border flat>
+						<v-card-title class="section-title pt-4">報酬</v-card-title>
+						<v-card-subtitle class="pb-2">行を押すと、その報酬を目標にします</v-card-subtitle>
+						<v-card-text>
+							<div v-if="!eventView.rewards.length" class="muted">報酬が登録されていません。</div>
+							<div v-for="r in eventView.rewards" :key="r.key" class="event-reward"
+								:class="{ 'event-reward--target': r.isTarget, 'event-reward--done': r.reached }"
+								role="button" tabindex="0"
+								@click="onSelectEventTarget(r)" @keydown.enter.prevent="onSelectEventTarget(r)">
+								<div class="reward-head">
+									<span class="reward-point num">{{ fmt(r.point) }}{{ eventView.event.pointUnit }}</span>
+									<span class="reward-name">{{ r.label }}<span v-for="(sub, i) in r.subLabels" :key="i" class="reward-sub">{{ sub }}</span></span>
+									<v-chip v-if="r.reached" size="small" label color="accent" variant="flat">獲得済</v-chip>
+									<v-chip v-else-if="r.isTarget" size="small" label color="primary" variant="flat">目標 {{ r.percent }}%</v-chip>
+									<span v-else class="reward-percent num">{{ r.percent }}%</span>
+								</div>
+								<v-progress-linear :model-value="r.percent" height="6" rounded
+									:color="r.reached ? 'accent' : 'primary'" class="mt-2"></v-progress-linear>
+							</div>
+							<!-- 所持数への反映の説明（AUTO_APPLY_REWARDS で切り替える） -->
+							<p v-if="autoApplyRewards" class="note mt-3 mb-0">
+								報酬のラインに達すると、報酬のアイテムを所持数に自動で加算します（所持数の一覧にないものは除く）。
+								数を減らしてラインを下回った場合は、加算した分を所持数から戻します。
+							</p>
+							<p v-else class="note mt-3 mb-0">
+								報酬のアイテムは自動では所持数に加算されません。獲得したら所持数の欄に入力してください。
+							</p>
+						</v-card-text>
+					</v-card>
+				</v-col>
+			</v-row>
+		</v-container>
+	</v-main>
+
+	<v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="snackbar.timeout" location="bottom">
+		<span class="pre-line">{{ snackbar.text }}</span>
+	</v-snackbar>
+</v-app>
+</script>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://unpkg.com/vue@3.5.43/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@3.13.3/dist/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue3-sfc-loader@0.9.5/dist/vue3-sfc-loader.js"></script>
+<!-- calc.html / event.html 共通の設定と処理（TouPuz） -->
+<script src="components/common.js"></script>
+
+<!-- ===================================================================
+     イベントの計算ロジック（DOM・Vue・localStorage に依存しない純粋な処理のみ）
+     =================================================================== -->
+<script id="event-logic">
+const EventCalc = (() => {
+	'use strict';
+
+	// ---------------------------------------------------------------
+	// 汎用ヘルパー
+	// ---------------------------------------------------------------
+
+	const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+	const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+	// ---------------------------------------------------------------
+	// アイテムマスタ（報酬の名前の表示と、所持数に加算できるかの判定に使う）
+	// ---------------------------------------------------------------
+
+	/**
+	 * アイテムマスタ（item.json）から アイテムID → アイテム名 を作る。
+	 * 形式の詳しい検証は calc.html で行うので、ここでは使える要素（id が文字列のもの）だけを拾う。
+	 * 配列でなければ null。
+	 */
+	function buildItemNameMap(items) {
+		if (!Array.isArray(items)) return null;
+		return new Map(items
+			.filter((it) => isPlainObject(it) && typeof it.id === 'string' && it.id !== '')
+			.map((it) => [it.id, typeof it.text === 'string' ? it.text : '']));
+	}
+
+	/**
+	 * 所持数の一覧に出すアイテム [{ id, text }]（item.json の順。calc.html の「すべて」と同じ）。
+	 * 名称（text）が空のものは出さない。no_show のアイテム（宝玉・小判など）も出す。
+	 * 同じIDが重なっていたら最初のものだけを使う。配列でなければ空。
+	 */
+	function buildInventoryItems(items) {
+		if (!Array.isArray(items)) return [];
+		const seen = new Set();
+		return items.filter((it) => {
+			if (!isPlainObject(it) || typeof it.id !== 'string' || it.id === '' || seen.has(it.id)) return false;
+			seen.add(it.id);
+			return typeof it.text === 'string' && it.text.trim() !== '';
+		}).map((it) => ({ id: it.id, text: it.text }));
+	}
+
+	/**
+	 * 刀剣男士マスタ（sword.json）から 刀剣男士ID → 名前 を作る（報酬の sword_id の名前の表示に使う）。
+	 * 形式の詳しい検証は calc.html で行うので、ここでは使える要素（id が文字列のもの）だけを拾う。
+	 * 同じIDが重なっていたら最初のものを使う。配列でなければ null。
+	 */
+	function buildSwordNameMap(swords) {
+		if (!Array.isArray(swords)) return null;
+		const map = new Map();
+		for (const sw of swords) {
+			if (!isPlainObject(sw) || typeof sw.id !== 'string' || sw.id === '' || map.has(sw.id)) continue;
+			map.set(sw.id, typeof sw.name === 'string' ? sw.name : '');
+		}
+		return map;
+	}
+
+	// ---------------------------------------------------------------
+	// イベント（event.json。期間中にポイントを集めて報酬をもらうイベント）
+	// ---------------------------------------------------------------
+
+	const MINUTE_MS = 60 * 1000;
+	const HOUR_MS = 60 * MINUTE_MS;
+	const DAY_MS = 24 * HOUR_MS;
+	/** 日本時間（UTC+9）と UTC の差 */
+	const JST_OFFSET_MS = 9 * HOUR_MS;
+
+	/**
+	 * 「YYYY-MM-DD HH:mm」を日本時間として解釈し、UTC のミリ秒を返す（端末のタイムゾーンには依存しない）。
+	 * 形式が違う・存在しない日時（2/30 など）は NaN。
+	 */
+	function parseJstDateTime(text) {
+		const m = typeof text === 'string' ? /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(text) : null;
+		if (!m) return NaN;
+		const [y, mo, d, h, mi] = m.slice(1).map(Number);
+		if (mo < 1 || mo > 12 || d < 1 || h > 23 || mi > 59) return NaN;
+		const ms = Date.UTC(y, mo - 1, d, h, mi) - JST_OFFSET_MS;
+		// 月末を超えた日付は Date.UTC が翌月に繰り上げるので、日が変わっていたら不正とする
+		if (new Date(ms + JST_OFFSET_MS).getUTCDate() !== d) return NaN;
+		return ms;
+	}
+
+	/**
+	 * イベントの終了時刻（ミリ秒）。end は「12:59」のように分までなので、その1分間の終わりまでを期間に含める。
+	 */
+	function eventEndMs(ev) {
+		return ev.endMs + MINUTE_MS;
+	}
+
+	/** イベントの状態: 'before'（開催前） / 'running'（開催中） / 'ended'（終了） */
+	function eventStatus(ev, nowMs) {
+		if (nowMs < ev.startMs) return 'before';
+		if (nowMs >= eventEndMs(ev)) return 'ended';
+		return 'running';
+	}
+
+	/** ミリ秒を { days, hours, minutes } に分ける（端数は切り捨て。負の値は0） */
+	function splitDuration(ms) {
+		const total = Math.max(0, Math.floor(ms / MINUTE_MS));
+		return {
+			days: Math.floor(total / (24 * 60)),
+			hours: Math.floor(total / 60) % 24,
+			minutes: total % 60,
+		};
+	}
+
+	/**
+	 * 1日のノルマ = 目標までの残り ÷ 残り日数（切り上げ）。
+	 * 残り日数は残り時間を日に換算した値（小数）で、1日未満は1日として扱う。
+	 */
+	function calculateDailyQuota(rest, remainingMs) {
+		if (!(rest > 0)) return 0;
+		return Math.ceil(rest / Math.max(1, remainingMs / DAY_MS));
+	}
+
+	/**
+	 * イベントマスタ（event.json）の検証と正規化。
+	 * 各要素は { id, name, start, end, point_name, point_unit, reward: [{ point, item_id, sword_id, text, value }] }。
+	 *   start / end : 「YYYY-MM-DD HH:mm」（日本時間）
+	 *   reward      : 5つのメンバは常に書く。item_id / sword_id / text は、使わないものを空文字（""）にする
+	 *     item_id  : item.json のアイテム。「名前 x個数」と表示し、ラインに達したら所持数に加算する
+	 *     sword_id : sword.json の刀剣男士。「名前 x個数」（個数がなければ名前のみ）と表示するだけで、所持数には加算しない
+	 *     text     : どちらのマスタにもない報酬（絵馬など）や補足。「text x個数」（個数がなければ text のみ）と表示するだけ
+	 *     複数ある : item_id → sword_id → text の順で最初のものを1行目（個数付き）に、残りをその下の行に小さく表示する
+	 *     すべて空 : その報酬は表示も加算もしない（開発者向けにコンソールへ出すだけ）
+	 *   reward.value: 個数（1以上の整数）。item_id があるときは必須。sword_id / text だけのときは null または省略可（表示に個数を付けない）
+	 *   メンバが無い場合は、空文字（value は null）と同じに扱う
+	 * 誤りのあるイベントは表示しない（他のイベントは使える）。素材計算には影響させない。
+	 * nameMap : アイテムID → 名前（null のときは item_id の存在確認をしない）
+	 * swordMap: 刀剣男士ID → 名前（null のときは sword_id の存在確認をしない）
+	 * 戻り値の events は [{ id, name, start, end, startMs, endMs, pointName, pointUnit, rewards }]（ファイルの記載順）
+	 *   rewards: [{ key: 報酬のキー（進捗の記録に使う）, index: reward 内の位置, point, itemId, swordId, value, text }]（point の小さい順）
+	 *     itemId / swordId / text は未設定なら null。value は sword_id / text だけの報酬で個数がなければ null
+	 *   key は報酬の中身から作る（rewardKeyOf）。報酬を途中に挿入・並べ替えしても、加算済みの記録がずれない
+	 */
+	function validateEvents(list, nameMap, swordMap) {
+		const errors = [];
+		const warnings = [];
+		const events = [];
+		if (!Array.isArray(list)) {
+			errors.push('event.json: イベントマスタが配列ではありません。');
+			return { errors, warnings, events };
+		}
+		const seen = new Set();
+		const unknownIds = new Set();
+		const unknownSwordIds = new Set();
+		const duplicatedKeys = [];
+		const skipped = [];   // item_id・sword_id・text がすべて空のため飛ばした報酬
+		const isText = (v) => typeof v === 'string' && v.trim() !== '';
+		list.forEach((ev, i) => {
+			const pos = `event.json の ${i + 1} 番目のイベント`;
+			if (!isPlainObject(ev)) {
+				errors.push(`${pos}: オブジェクトではありません。`);
+				return;
+			}
+			const errs = [];
+			if (typeof ev.id !== 'string' || ev.id === '') errs.push('id が空でない文字列ではありません。');
+			else if (seen.has(ev.id)) errs.push(`id「${ev.id}」が重複しています。`);
+			if (!isText(ev.name)) errs.push('name が空でない文字列ではありません。');
+			const startMs = parseJstDateTime(ev.start);
+			const endMs = parseJstDateTime(ev.end);
+			if (Number.isNaN(startMs)) errs.push(`start が「YYYY-MM-DD HH:mm」形式の日時ではありません（${JSON.stringify(ev.start)}）。`);
+			if (Number.isNaN(endMs)) errs.push(`end が「YYYY-MM-DD HH:mm」形式の日時ではありません（${JSON.stringify(ev.end)}）。`);
+			if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) errs.push('end が start より前です。');
+			if (!isText(ev.point_name)) errs.push('point_name が空でない文字列ではありません。');
+			// point_unit（「体」など）は任意
+			if (hasOwn(ev, 'point_unit') && typeof ev.point_unit !== 'string') errs.push('point_unit が文字列ではありません。');
+			const rewards = [];
+			if (!Array.isArray(ev.reward)) errs.push('reward が配列ではありません。');
+			else ev.reward.forEach((rw, j) => {
+				const rpos = `reward の ${j + 1} 番目`;
+				if (!isPlainObject(rw)) {
+					errs.push(`${rpos}: オブジェクトではありません。`);
+					return;
+				}
+				// item_id / sword_id / text: 空文字（前後の空白だけも含む）は「未設定」。メンバが無い・null も未設定として扱う
+				const optText = (key) => {
+					const v = rw[key];
+					if (v === undefined || v === null) return '';
+					if (typeof v !== 'string') {
+						errs.push(`${rpos}: ${key} が文字列ではありません（${JSON.stringify(v)}）。`);
+						return '';
+					}
+					return v.trim();
+				};
+				const itemId = optText('item_id');
+				const swordId = optText('sword_id');
+				const text = optText('text');
+				if (itemId === '' && swordId === '' && text === '') {
+					// すべて空の報酬は飛ばす（イベント自体は表示する）
+					skipped.push(`${isText(ev.name) ? ev.name : pos}: ${rpos}`);
+					return;
+				}
+				if (!Number.isSafeInteger(rw.point) || rw.point <= 0) errs.push(`${rpos}: point が1以上の整数ではありません（${JSON.stringify(rw.point)}）。`);
+				const hasCount = rw.value !== undefined && rw.value !== null;
+				if (itemId !== '') {
+					// アイテムの報酬は個数が必須
+					if (!Number.isSafeInteger(rw.value) || rw.value <= 0) errs.push(`${rpos}: value が1以上の整数ではありません（${JSON.stringify(rw.value)}）。`);
+					else if (nameMap && !nameMap.has(itemId)) unknownIds.add(itemId);
+				} else if (hasCount && (!Number.isSafeInteger(rw.value) || rw.value <= 0)) {
+					// sword_id / text だけの報酬は個数が任意（書いてあれば1以上の整数）
+					errs.push(`${rpos}: value が1以上の整数ではありません（${JSON.stringify(rw.value)}）。`);
+				}
+				// 刀剣男士マスタにない sword_id は、表示はする（名前はIDのまま）
+				if (swordId !== '' && swordMap && !swordMap.has(swordId)) unknownSwordIds.add(swordId);
+				rewards.push({
+					index: j,
+					point: rw.point,
+					itemId: itemId !== '' ? itemId : null,
+					swordId: swordId !== '' ? swordId : null,
+					value: hasCount ? rw.value : null,
+					text: text !== '' ? text : null,
+				});
+			});
+			if (errs.length) {
+				const label = isText(ev.name) ? `（${ev.name}）` : '';
+				errors.push(`${pos}${label}に誤りがあるため表示しません:\n${errs.join('\n')}`);
+				return;
+			}
+			seen.add(ev.id);
+			// 報酬のキー。同じイベント内で重なったら、記載順で2つ目以降に「#2」「#3」…を付けて区別する
+			const keyCount = new Map();
+			for (const r of rewards) {
+				const base = rewardKeyOf(r);
+				const n = (keyCount.get(base) || 0) + 1;
+				keyCount.set(base, n);
+				r.key = n === 1 ? base : `${base}#${n}`;
+				if (n === 2) duplicatedKeys.push(`${ev.name}: ${base}`);
+			}
+			events.push({
+				id: ev.id,
+				name: ev.name,
+				start: ev.start,
+				end: ev.end,
+				startMs,
+				endMs,
+				pointName: ev.point_name,
+				pointUnit: hasOwn(ev, 'point_unit') ? ev.point_unit : '',
+				// 必要ポイントの小さい順（同じポイントは記載順）
+				rewards: [...rewards].sort((a, b) => a.point - b.point || a.index - b.index),
+			});
+		});
+		if (unknownIds.size) {
+			warnings.push(`event.json: アイテムマスタに存在しないIDがあります。報酬は表示しますが、所持数には加算しません:\n${[...unknownIds].join('\n')}`);
+		}
+		if (unknownSwordIds.size) {
+			warnings.push(`event.json: 刀剣男士マスタに存在しない sword_id があります。報酬はIDのまま表示します:\n${[...unknownSwordIds].join('\n')}`);
+		}
+		if (skipped.length) {
+			warnings.push(`event.json: item_id・sword_id・text がすべて空の報酬があります。この報酬は表示しません:\n${skipped.join('\n')}`);
+		}
+		if (duplicatedKeys.length) {
+			warnings.push(`event.json: 同じイベント内に、point と item_id（item_id が空なら sword_id、それも空なら text）が同じ報酬があります。記載順で「#2」などを付けて区別します（並べ替えると加算済みの記録がずれることがあります）:\n${duplicatedKeys.join('\n')}`);
+		}
+		return { errors, warnings, events };
+	}
+
+	/**
+	 * 報酬のキー（重複を区別する前）。item_id があれば「250:item101」（sword_id / text も書いてあっても同じ）、
+	 * item_id がなく sword_id があれば「70000:sword:sw093_e_20261014」、text だけなら「1000:text:[絵馬]一寸の大冒険」。
+	 * キーには value を含めない（value を後から書き足しても、保存済みの進捗がずれない）。
+	 * 配列の位置ではなく中身から作るので、event.json に報酬を途中に追加しても変わらない。
+	 */
+	function rewardKeyOf(r) {
+		if (r.itemId) return `${r.point}:${r.itemId}`;
+		if (r.swordId) return `${r.point}:sword:${r.swordId}`;
+		return `${r.point}:text:${r.text}`;
+	}
+
+	/**
+	 * 最初に表示するイベントのID。
+	 * 開催中のもの（複数なら終了が近い順）→ 開始済みで最も新しいもの → 開始が最も近い開催前のもの。
+	 */
+	function pickInitialEvent(events, nowMs) {
+		const running = events.filter((ev) => eventStatus(ev, nowMs) === 'running')
+			.sort((a, b) => a.endMs - b.endMs);
+		if (running.length) return running[0].id;
+		const started = events.filter((ev) => ev.startMs <= nowMs).sort((a, b) => b.startMs - a.startMs);
+		if (started.length) return started[0].id;
+		const upcoming = [...events].sort((a, b) => a.startMs - b.startMs);
+		return upcoming.length ? upcoming[0].id : null;
+	}
+
+	/** 目標の初期値: まだ届いていない最初の報酬のポイント（すべて届いていれば最後の報酬）。報酬がなければ null */
+	function defaultEventTarget(rewards, point) {
+		if (!rewards.length) return null;
+		const next = rewards.find((r) => point < r.point);
+		return (next || rewards[rewards.length - 1]).point;
+	}
+
+	/**
+	 * 現在のポイントに合わせて、所持数に加算する報酬・戻す報酬を求める。
+	 * rewards     : validateEvents で正規化した報酬
+	 * applied     : すでに所持数に加算した報酬の key の配列
+	 * isApplicable: 所持数に反映できる報酬か（item.json にあるアイテムの報酬だけ true にする）
+	 * 戻り値: { apply: [加算する報酬], revert: [戻す報酬] }
+	 */
+	function diffEventRewards(rewards, point, applied, isApplicable) {
+		const done = new Set(applied);
+		const apply = [];
+		const revert = [];
+		for (const r of rewards) {
+			if (!isApplicable(r)) continue;
+			if (point >= r.point && !done.has(r.key)) apply.push(r);
+			else if (point < r.point && done.has(r.key)) revert.push(r);
+		}
+		return { apply, revert };
+	}
+
+	/**
+	 * 保存済み（またはインポートした）イベントの進捗の整理。
+	 * 形式: { イベントID: { point: 現在のポイント, target: 目標のポイント（未指定は null）, applied: [所持数に加算済みの報酬の key] } }
+	 *   例: { "ev000001": { "point": 260, "target": null, "applied": ["250:item101"] } }
+	 * event.json にないイベントの進捗も消さずに残す。applied の文字列以外（開発中の古い index 形式など）は捨てる。
+	 */
+	function sanitizeEventProgress(raw) {
+		const out = {};
+		if (!isPlainObject(raw)) return out;
+		for (const [id, v] of Object.entries(raw)) {
+			if (!isPlainObject(v)) continue;
+			const applied = Array.isArray(v.applied)
+				? [...new Set(v.applied.filter((k) => typeof k === 'string' && k !== ''))].sort()
+				: [];
+			out[id] = {
+				point: Number.isSafeInteger(v.point) && v.point >= 0 ? v.point : 0,
+				target: Number.isSafeInteger(v.target) && v.target > 0 ? v.target : null,
+				applied,
+			};
+		}
+		return out;
+	}
+
+	// ---------------------------------------------------------------
+	// 所持数への加算・戻し
+	// ---------------------------------------------------------------
+
+	/**
+	 * 保存済みの所持数（calc.html と同じ形式 { アイテムID: 所持数 }）に、報酬の分を加算・減算した新しいオブジェクトを返す。
+	 * 知らないキー（アイテムマスタにない古いIDなど）もそのまま残す。0以上の整数でない値は0として扱い、0未満にはしない。
+	 * added / removed: アイテムID → 数量 の Map
+	 */
+	function applyInventoryDelta(raw, added, removed) {
+		const out = isPlainObject(raw) ? { ...raw } : {};
+		const current = (id) => (Number.isSafeInteger(out[id]) && out[id] >= 0 ? out[id] : 0);
+		for (const [id, v] of added) out[id] = current(id) + v;
+		for (const [id, v] of removed) out[id] = Math.max(0, current(id) - v);
+		return out;
+	}
+
+	return {
+		buildItemNameMap,
+		buildInventoryItems,
+		buildSwordNameMap,
+		parseJstDateTime,
+		eventEndMs,
+		eventStatus,
+		splitDuration,
+		calculateDailyQuota,
+		validateEvents,
+		pickInitialEvent,
+		defaultEventTarget,
+		diffEventRewards,
+		sanitizeEventProgress,
+		applyInventoryDelta,
+	};
+})();
+
+// Node.js からテストするための書き出し（ブラウザでは何もしない）
+if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
+</script>
+
+<!-- ===================================================================
+     データ読み込み・保存・画面（UI）
+     =================================================================== -->
+<script>
+(() => {
+	'use strict';
+
+	// ---------------------------------------------------------------
+	// 定数
+	// ---------------------------------------------------------------
+
+	/** 事前データ（event.html からの相対パス） */
+	const DATA_FILES = Object.freeze({
+		items: 'data/item.json',
+		swords: 'data/sword.json',
+		events: 'data/event.json',
+	});
+
+	/** 所持数（calc.html と共通）・イベントの進捗を保存する localStorage のキー（components/common.js で定義） */
+	const INVENTORY_KEY = TouPuz.STORAGE_KEYS.inventory;
+	const EVENT_PROGRESS_KEY = TouPuz.STORAGE_KEYS.eventProgress;
+	/**
+	 * 報酬のラインに達したときに所持数へ自動で加算・戻しをするか。
+	 * アイテムの獲得はユーザーが所持数カードで入力するため停止中。再開するときは true にする。
+	 * false の間は、ポイント・目標だけを保存し、所持数と進捗の加算済みの記録（applied）には触れない。
+	 */
+	const AUTO_APPLY_REWARDS = false;
+	/** 残り時間などを更新する間隔（ミリ秒） */
+	const CLOCK_INTERVAL_MS = 60 * 1000;
+
+	const isNonNegativeIntegerText = TouPuz.isNonNegativeIntegerText;
+	const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+	// ---------------------------------------------------------------
+	// 保存・復元（localStorage）
+	// ---------------------------------------------------------------
+
+	/** イベントの進捗を復元する。保存がない・壊れているときは空 */
+	function loadEventProgress() {
+		let raw = null;
+		try {
+			const text = window.localStorage.getItem(EVENT_PROGRESS_KEY);
+			raw = text ? JSON.parse(text) : null;
+		} catch (e) {
+			raw = null;
+		}
+		return EventCalc.sanitizeEventProgress(raw);
+	}
+
+	/** イベントの進捗を保存する */
+	function saveEventProgress(progress) {
+		try {
+			window.localStorage.setItem(EVENT_PROGRESS_KEY, JSON.stringify(progress));
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	/**
+	 * 所持数（calc.html が使う保存データ）に、報酬の分を加算・減算して保存する。
+	 * 別のタブの calc.html などで変わっている可能性があるので、書き込む直前に読み直す。
+	 * 保存データが壊れている（JSONとして読めない）ときは、上書きで消してしまわないよう何もしない。
+	 * 戻り値: 保存できたら true
+	 */
+	function updateInventory(added, removed) {
+		try {
+			const text = window.localStorage.getItem(INVENTORY_KEY);
+			const raw = text ? JSON.parse(text) : {};
+			if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return false;
+			window.localStorage.setItem(INVENTORY_KEY, JSON.stringify(EventCalc.applyInventoryDelta(raw, added, removed)));
+			return true;
+		} catch (e) {
+			console.warn('[所持数] 加算・戻しを保存できませんでした:', e);
+			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------
+	// Vue アプリ
+	// ---------------------------------------------------------------
+
+	const { createApp, ref, reactive, computed, shallowRef, watch, onMounted } = Vue;
+
+	const app = createApp({
+		template: '#app-template',
+		// 共通ヘッダー・メニュー（.vue ファイルを vue3-sfc-loader で読み込む）
+		components: {
+			'layout-header': TouPuz.vueLoader(`components/layout/header.vue?_=${Date.now()}`),
+			'layout-menu': TouPuz.vueLoader(`components/layout/menu.vue?_=${Date.now()}`),
+			// 所持数カード（calc.html と共通）
+			'inventory-card': TouPuz.vueLoader(`components/parts/inventory-card.vue?_=${Date.now()}`),
+		},
+		setup() {
+			// ----- 状態 -----
+			const ready = ref(false);              // アイテムマスタを読み込めた（所持数に加算できる）
+			const itemLoadFailed = ref(false);
+			const nameMap = shallowRef(new Map()); // アイテムID → アイテム名
+			const inventoryItems = shallowRef([]); // 所持数の一覧に出すアイテム [{ id, text }]
+			const swordNameMap = shallowRef(null); // 刀剣男士ID → 名前（sword.json を読み込めないときは null。報酬の sword_id はIDのまま表示）
+
+			// 所持数（calc.html と同じ保存データ。報酬の加算・戻しの後もここに読み直して、一覧の表示と状態を1つにする）
+			const inventoryState = TouPuz.createInventoryState();
+			const inventorySearch = ref('');
+			const inventoryRows = computed(() => inventoryItems.value.filter(TouPuz.itemKeywordMatcher(inventorySearch.value)));
+
+			const events = shallowRef([]);          // イベント（validateEvents で正規化したもの。開始が新しい順）
+			const eventLoading = ref(true);
+			const eventLoadFailed = ref(false);     // イベントマスタを読み込めない・使えるイベントが1件もない
+			const eventPartialError = ref(false);   // 誤りのため表示していないイベントがある
+			const eventProgress = reactive(loadEventProgress());  // イベントID → { point, target, applied }
+			const selectedEventId = ref(null);
+			const eventPointText = ref('');         // 現在のポイントの入力欄の文字列
+
+			// メニュー（画面の右端から引き出すパネル。中身は共通メニュー components/layout/menu.vue）
+			const menuOpen = ref(false);
+			const snackbar = reactive({ show: false, text: '', color: 'error', timeout: 5000 });
+
+			// ----- 表示用ヘルパー -----
+			const nameOf = (id) => {
+				const text = nameMap.value.get(id);
+				return text && text.trim() ? text : '（名称未設定）';
+			};
+			const fmt = (n) => {
+				if (!Number.isFinite(n)) return '-';
+				const v = Number.isInteger(n) ? n : Math.round(n * 1000) / 1000;
+				return v.toLocaleString('ja-JP');
+			};
+			const qtyRule = TouPuz.qtyRule;
+			const showSnack = (text, color = 'error', timeout = 5000) => {
+				snackbar.text = text;
+				snackbar.color = color;
+				snackbar.timeout = timeout;
+				snackbar.show = true;
+			};
+
+			// 現在時刻（残り時間の表示用。一定間隔と、画面に戻ってきたときに更新する）
+			const now = ref(Date.now());
+			setInterval(() => { now.value = Date.now(); }, CLOCK_INTERVAL_MS);
+			document.addEventListener('visibilitychange', () => {
+				if (document.visibilityState === 'visible') now.value = Date.now();
+			});
+
+			/** 残り時間の表示（「3日4時間」「5時間12分」「12分」） */
+			const formatRemaining = (ms) => {
+				const { days, hours, minutes } = EventCalc.splitDuration(ms);
+				if (days > 0) return `${days}日${hours}時間`;
+				if (hours > 0) return `${hours}時間${minutes}分`;
+				return `${minutes}分`;
+			};
+			/** 「2026-10-14 16:00」→「10/14 16:00」（日本時間の文字列をそのまま並べ替えるだけ） */
+			const formatEventDate = (text) => {
+				const m = /^\d{4}-(\d{2})-(\d{2}) (\d{2}:\d{2})$/.exec(text);
+				return m ? `${m[1]}/${m[2]} ${m[3]}` : text;
+			};
+
+			/** イベントの進捗（まだなければ初期値を作る） */
+			function ensureEventProgress(id) {
+				if (!hasValue(eventProgress, id)) eventProgress[id] = { point: 0, target: null, applied: [] };
+				return eventProgress[id];
+			}
+			const committedPointOf = (id) => (hasValue(eventProgress, id) ? eventProgress[id].point : 0);
+
+			const selectedEvent = computed(() => events.value.find((ev) => ev.id === selectedEventId.value) || null);
+
+			/** 入力欄に、選択中のイベントの保存済みのポイントを表示する */
+			function syncEventPointText() {
+				const ev = selectedEvent.value;
+				eventPointText.value = ev ? String(committedPointOf(ev.id)) : '';
+			}
+			watch(selectedEventId, syncEventPointText);
+
+			// イベントselectの項目（終了・開催前のイベントは名前の後ろに表示）
+			const eventSelectItems = computed(() => events.value.map((ev) => {
+				const st = EventCalc.eventStatus(ev, now.value);
+				const suffix = st === 'ended' ? '（終了）' : st === 'before' ? '（開催前）' : '';
+				return { title: ev.name + suffix, value: ev.id };
+			}));
+
+			/** 刀剣男士の表示名（sword.json にない・読み込めないとき、名前が空のときはIDのまま） */
+			const swordNameOf = (id) => {
+				const name = swordNameMap.value ? swordNameMap.value.get(id) : undefined;
+				return name && name.trim() ? name : id;
+			};
+			/**
+			 * 報酬の表示名。item_id / sword_id / text のうち値があるものをすべて出す。
+			 *   label    : 1行目。item_id があれば「小判 x1,000」（item.json にないIDはIDのまま）、
+			 *              なければ sword_id の「刀剣男士名 x1」、それもなければ「text x1」（sword_id / text は個数がなければ名前のみ）
+			 *   subLabels: 1行目に使わなかった sword_id の名前・text（この順。label の下に小さく1行ずつ表示する）
+			 */
+			const rewardLabels = (r) => {
+				const withCount = (name) => (r.value != null ? `${name} x${fmt(r.value)}` : name);
+				const parts = [];
+				if (r.itemId) parts.push(nameMap.value.has(r.itemId) ? nameOf(r.itemId) : r.itemId);
+				if (r.swordId) parts.push(swordNameOf(r.swordId));
+				if (r.text) parts.push(r.text);
+				return { label: withCount(parts[0]), subLabels: parts.slice(1) };
+			};
+			/** 所持数に反映できる報酬か（item.json にあるアイテムの報酬だけ。sword_id / text は表示のみ。item_id と一緒にあればアイテムの分を反映する） */
+			const isApplicableReward = (r) => !!r.itemId && ready.value && nameMap.value.has(r.itemId);
+
+			// 入力中のポイント（正しい値ならそれを、入力途中・不正なら保存済みの値を表示に使う）
+			const livePoint = computed(() => {
+				const ev = selectedEvent.value;
+				if (!ev) return 0;
+				const text = String(eventPointText.value ?? '').trim();
+				return isNonNegativeIntegerText(text) ? Number(text) : committedPointOf(ev.id);
+			});
+
+			/** 選択中のイベントの表示内容（期間・残り時間・統計・報酬一覧） */
+			const eventView = computed(() => {
+				const ev = selectedEvent.value;
+				if (!ev) return null;
+				const point = livePoint.value;
+				const status = EventCalc.eventStatus(ev, now.value);
+				const endMs = EventCalc.eventEndMs(ev);
+				const p = eventProgress[ev.id];
+				// 目標: 報酬の行で選んだもの。選んでいない・該当する報酬がないときは、まだ届いていない最初の報酬
+				const target = p && p.target !== null && ev.rewards.some((r) => r.point === p.target)
+					? p.target : EventCalc.defaultEventTarget(ev.rewards, point);
+				const rest = target === null ? 0 : Math.max(0, target - point);
+				const rewards = ev.rewards.map((r) => {
+					const reached = point >= r.point;
+					return {
+						...r,
+						...rewardLabels(r),
+						reached,
+						isTarget: r.point === target,
+						percent: Math.min(100, Math.floor(point / r.point * 100)),
+					};
+				});
+				// 表示の順番: 未獲得を上に、獲得済を下に（それぞれ point の小さい順。ev.rewards の並びを保つ）
+				const sortedRewards = [
+					...rewards.filter((r) => !r.reached),
+					...rewards.filter((r) => r.reached),
+				];
+				let remainingText = '終了';
+				if (status === 'running') remainingText = `残り ${formatRemaining(endMs - now.value)}`;
+				else if (status === 'before') remainingText = `開催前（開始まで ${formatRemaining(ev.startMs - now.value)}）`;
+				return {
+					event: ev,
+					status,
+					period: `${formatEventDate(ev.start)} 〜 ${formatEventDate(ev.end)}`,
+					remainingText,
+					target,
+					rest,
+					// 1日のノルマ（終了後は出さない。開催前は期間全体で割る）
+					quota: status === 'ended' ? null
+						: EventCalc.calculateDailyQuota(rest, endMs - Math.max(now.value, ev.startMs)),
+					reachedCount: rewards.filter((r) => r.reached).length,
+					rewards: sortedRewards,
+				};
+			});
+
+			/**
+			 * 現在のポイントを確定する。
+			 * 報酬のラインに届いた報酬は、そのアイテムを所持数に加算する（ゲーム内で受け取った分）。
+			 * ラインを下回った報酬（入力ミスの修正など）は、加算した分を所持数から戻す（0未満にはしない）。
+			 * 加算済みかどうかはイベントごとに記録し、同じ報酬を二重に加算しない。
+			 * 所持数は calc.html と共通の保存データ（toupuzCalc.itemInventory）を直接書き換える。
+			 * AUTO_APPLY_REWARDS が false の間は、所持数・加算済みの記録・通知には触れず、ポイントの保存だけをする。
+			 */
+			function setEventPoint(ev, point) {
+				const p = ensureEventProgress(ev.id);
+				// 自動の加算・戻しを停止中は、加算・戻しする報酬なしとして扱う（所持数・applied・通知はそのまま）
+				const { apply, revert } = AUTO_APPLY_REWARDS
+					? EventCalc.diffEventRewards(ev.rewards, point, p.applied, isApplicableReward)
+					: { apply: [], revert: [] };
+				if (apply.length || revert.length) {
+					// アイテムごとに合計して、所持数を書き換える
+					const added = new Map();
+					const removed = new Map();
+					for (const r of apply) added.set(r.itemId, (added.get(r.itemId) || 0) + r.value);
+					for (const r of revert) removed.set(r.itemId, (removed.get(r.itemId) || 0) + r.value);
+					const updated = updateInventory(added, removed);
+					// 保存データを直接書き換えたので、所持数の一覧（同じページ内の状態）に読み直す
+					inventoryState.reload();
+					if (!updated) {
+						// 所持数を書き換えられなかったときは、ポイントも加算済みの記録も変えない（あとでやり直せるように）
+						syncEventPointText();
+						showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+						return;
+					}
+					const applied = new Set(p.applied);
+					for (const r of apply) applied.add(r.key);
+					for (const r of revert) applied.delete(r.key);
+					p.applied = [...applied].sort();
+
+					const list = (m, sign) => [...m].map(([id, v]) => `${nameOf(id)} ${sign}${fmt(v)}`).join('、');
+					const lines = [];
+					if (added.size) lines.push(`${list(added, '+')} を所持数に加算しました`);
+					if (removed.size) lines.push(`${list(removed, '')} を所持数から戻しました`);
+					showSnack(lines.join('\n'), 'success');
+				}
+				p.point = point;
+				eventPointText.value = String(point);
+				if (!saveEventProgress(eventProgress)) {
+					showSnack('イベントの進捗をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+				}
+			}
+
+			/**
+			 * ポイントの入力欄の確定（フォーカスが外れた・Enter）。
+			 * 1文字ごとに加算・戻しをすると、入力途中の値で所持数が増減してしまうため、確定したときだけ反映する。
+			 * 空欄や不正な値のときは保存済みの値に戻す。
+			 */
+			function onEventPointCommit() {
+				const ev = selectedEvent.value;
+				if (!ev) return;
+				const text = String(eventPointText.value ?? '').trim();
+				if (!isNonNegativeIntegerText(text)) {
+					syncEventPointText();
+					return;
+				}
+				if (Number(text) !== committedPointOf(ev.id)) setEventPoint(ev, Number(text));
+			}
+
+			/** +1 / +5 / +10 / −1 ボタン（入力中の値を基準にする） */
+			function onEventPointStep(delta) {
+				const ev = selectedEvent.value;
+				if (!ev) return;
+				setEventPoint(ev, Math.max(0, livePoint.value + delta));
+			}
+
+			/** 報酬の行を押したら、その報酬を目標にする */
+			function onSelectEventTarget(r) {
+				const ev = selectedEvent.value;
+				if (!ev) return;
+				ensureEventProgress(ev.id).target = r.point;
+				if (!saveEventProgress(eventProgress)) {
+					showSnack('イベントの進捗をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+				}
+			}
+
+			/** 所持数の入力: 正しい値ならすぐ保存。不正な値は保存しない（calc.html と同じ） */
+			function onInventoryInput(id, value) {
+				if (!inventoryState.input(id, value)) {
+					showSnack('所持数をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+				}
+			}
+
+			// 別のタブ・別のページで所持数が保存されたら読み直す（古い所持数で上書きしないように）
+			window.addEventListener('storage', (e) => {
+				if (e.key === INVENTORY_KEY) inventoryState.reload();
+			});
+
+			// 別のタブで進捗が保存されたら読み直す（古い進捗で上書きして、二重に加算しないように）
+			window.addEventListener('storage', (e) => {
+				if (e.key !== EVENT_PROGRESS_KEY) return;
+				const fresh = loadEventProgress();
+				for (const id of Object.keys(eventProgress)) if (!hasValue(fresh, id)) delete eventProgress[id];
+				Object.assign(eventProgress, fresh);
+				syncEventPointText();
+			});
+
+			// ----- 初期化 -----
+
+			/** アイテムマスタの初期化。読み込めなくてもイベントは表示する（所持数への加算だけできない） */
+			function initializeItems(res) {
+				const map = res.ok ? EventCalc.buildItemNameMap(res.data) : null;
+				if (!map) {
+					console.error('[データエラー]', res.ok ? 'item.json: アイテムマスタが配列ではありません。' : (res.error && res.error.message ? res.error.message : String(res.error)));
+					itemLoadFailed.value = true;
+					return;
+				}
+				nameMap.value = map;
+				inventoryItems.value = EventCalc.buildInventoryItems(res.data);
+				inventoryState.restore(map, [...map.keys()]);
+				ready.value = true;
+			}
+
+			/** 刀剣男士マスタの初期化。読み込めなくてもイベントは表示する（報酬の sword_id をIDのまま表示するだけ） */
+			function initializeSwords(res) {
+				const map = res.ok ? EventCalc.buildSwordNameMap(res.data) : null;
+				if (!map) {
+					console.error('[データエラー]', res.ok ? 'sword.json: 刀剣男士マスタが配列ではありません。' : (res.error && res.error.message ? res.error.message : String(res.error)));
+					return;
+				}
+				swordNameMap.value = map;
+			}
+
+			/**
+			 * イベントマスタの初期化。誤りのあるイベントは表示せず、画面には誤りがある旨だけを出す。
+			 * 詳細は開発者向けにコンソールへ出力する。
+			 */
+			function initializeEvents(res) {
+				if (!res.ok) {
+					console.warn('[イベントデータ]', res.error && res.error.message ? res.error.message : String(res.error));
+					const hint = location.protocol === 'file:'
+						? 'ファイルを直接開いた場合、ブラウザの制限でJSONを読み込めません。Webサーバーに配置して開いてください。'
+						: 'event.html と同じ場所に data フォルダ（item.json / sword.json / event.json）があるか確認してください。';
+					console.warn('[イベントデータ]', hint);
+					eventLoadFailed.value = true;
+					return;
+				}
+				// item.json / sword.json を読めていないときは、それぞれの報酬のIDの確認はしない
+				const check = EventCalc.validateEvents(res.data, ready.value ? nameMap.value : null, swordNameMap.value);
+				check.errors.forEach((msg) => console.warn('[イベントデータエラー]', msg));
+				check.warnings.forEach((msg) => console.warn('[イベントデータの注意]', msg));
+				events.value = [...check.events].sort((a, b) => b.startMs - a.startMs);
+				eventLoadFailed.value = check.errors.length > 0 && check.events.length === 0;
+				eventPartialError.value = check.errors.length > 0 && check.events.length > 0;
+				selectedEventId.value = EventCalc.pickInitialEvent(check.events, Date.now());
+			}
+
+			onMounted(async () => {
+				// 読み込みの成否を、例外ではなく { ok, data / error } で受け取る
+				const settle = (p) => p.then((data) => ({ ok: true, data }), (error) => ({ ok: false, error }));
+				try {
+					const [itemRes, swordRes, eventRes] = await Promise.all([
+						settle(TouPuz.loadJson(DATA_FILES.items)),
+						settle(TouPuz.loadJson(DATA_FILES.swords)),
+						settle(TouPuz.loadJson(DATA_FILES.events)),
+					]);
+					initializeItems(itemRes);
+					initializeSwords(swordRes);
+					initializeEvents(eventRes);
+				} finally {
+					eventLoading.value = false;
+				}
+			});
+
+			return {
+				ready, itemLoadFailed, menuOpen, snackbar, fmt, qtyRule,
+				autoApplyRewards: AUTO_APPLY_REWARDS,
+				events, eventLoading, eventLoadFailed, eventPartialError, eventSelectItems,
+				selectedEventId, selectedEvent, eventPointText, eventView,
+				onEventPointCommit, onEventPointStep, onSelectEventTarget,
+				inventoryState, inventorySearch, inventoryRows, onInventoryInput,
+			};
+		},
+	});
+
+	// ----- テーマ（初期はライトモード。メニューで切り替えたモードがあればそれを使う。配色は components/common.js） -----
+	const vuetify = TouPuz.createVuetify();
+	app.use(vuetify).mount('#app');
+})();
+</script>
+</body>
+</html>
