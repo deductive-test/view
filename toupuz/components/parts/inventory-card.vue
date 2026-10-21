@@ -14,7 +14,7 @@
      =================================================================== -->
 <template>
 	<v-card border flat>
-		<v-card-title class="section-title pt-4">所持数</v-card-title>
+		<v-card-title class="section-title pt-4">アイテム</v-card-title>
 		<v-card-subtitle class="pb-2">入力した値はこのブラウザに自動で保存されます</v-card-subtitle>
 		<v-card-text>
 			<v-text-field

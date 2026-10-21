@@ -151,7 +151,8 @@
 				<v-col v-if="eventView" cols="12" md="7" lg="8">
 					<v-card border flat>
 						<v-card-title class="section-title pt-4">報酬</v-card-title>
-						<v-card-subtitle class="pb-2">行を押すと、その報酬を目標にします</v-card-subtitle>
+						<v-card-subtitle class="pb-0">行を押すと、その報酬を目標にします</v-card-subtitle>
+						<v-card-subtitle class="pb-2" style="white-space: normal;">※報酬のアイテムは自動で加算されません。獲得したらアイテム欄に入力してください</v-card-subtitle>
 						<v-card-text>
 							<div v-if="!eventView.rewards.length" class="muted">報酬が登録されていません。</div>
 							<div v-for="r in eventView.rewards" :key="r.key" class="event-reward"
@@ -172,9 +173,6 @@
 							<p v-if="autoApplyRewards" class="note mt-3 mb-0">
 								報酬のラインに達すると、報酬のアイテムを所持数に自動で加算します（所持数の一覧にないものは除く）。
 								数を減らしてラインを下回った場合は、加算した分を所持数から戻します。
-							</p>
-							<p v-else class="note mt-3 mb-0">
-								報酬のアイテムは自動では所持数に加算されません。獲得したら所持数の欄に入力してください。
 							</p>
 						</v-card-text>
 					</v-card>
