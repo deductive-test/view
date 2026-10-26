@@ -169,6 +169,10 @@
 					<br><span class="muted">※個人の趣味で設置しておりますので、状況に応じて報告機能を制限することがあります。</span>
 				</p>
 				<br>
+				<p>
+					アクセス数の把握のため、Cloudflare Web Analytics を使用しています（Cookie は使用せず、個人を特定する情報は収集しません）。
+				</p>
+				<br>
 				<p class="muted">Author: <a href="https://x.com/deductive_test" target="_blank" rel="noopener">@deductive_test</a></p>
 				<p class="muted">Last Update: {{lastModified}}</p>
 			</v-card-text>

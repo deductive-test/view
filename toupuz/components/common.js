@@ -49,6 +49,7 @@ const TouPuz = (() => {
 				+ '\n・レシピ追加(10→20)：石切丸、今剣、一期一振、平野藤四郎、大和守安定、陸奥守吉行、山姥切国広、堀川国広、御手杵'
 				+ '\n・レシピ追加(20→30)：今剣(六寸五分の小天狗)'
 				+ '\n・レシピ追加(30→35)：小狐丸、前田藤四郎、薬研藤四郎、鶯丸、蛍丸、小夜左文字、陸奥守吉行(勇気百寸)、大倶利伽羅、へし切長谷部、鶴丸国永'
+				+ '\n・アクセス解析追加'
 		},
 		{
 			title: '2026/10/21(水) ver 1.1.0',
@@ -588,6 +589,38 @@ const TouPuz = (() => {
 		setFlash,
 		takeFlash,
 	};
+})();
+
+/* -------------------------------------------------------------------
+   アクセス解析（Cloudflare Web Analytics）
+   公開サイト（ホスト名が .github.io で終わるとき）だけビーコンを読み込む。
+   ライブプレビュー（127.0.0.1）や localhost では読み込まない。
+   ------------------------------------------------------------------- */
+(() => {
+	'use strict';
+
+	/** Cloudflare Web Analytics のビーコンスクリプトの URL */
+	const CF_BEACON_SRC = 'https://static.cloudflareinsights.com/beacon.min.js';
+	/** Cloudflare Web Analytics のトークン（公開ページに載せる前提の値） */
+	const CF_BEACON_TOKEN = '812bb41581204fd39752b6f206516215';
+
+	// Node.js でのテスト時は window / document がないので何もしない
+	if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+	/** 公開サイト（GitHub Pages）で表示しているか（URL 全体ではなくホスト名で判定する） */
+	const isPublicSite = () => String(window.location.hostname || '').toLowerCase().endsWith('.github.io');
+	if (!isPublicSite()) return;
+
+	// 二重読み込みを防ぐ（同じ src の script が既にあれば追加しない）
+	const exists = Array.from(document.getElementsByTagName('script')).some((s) => s.getAttribute('src') === CF_BEACON_SRC);
+	if (exists) return;
+
+	const script = document.createElement('script');
+	script.type = 'module';
+	script.src = CF_BEACON_SRC;
+	script.defer = true;
+	script.setAttribute('data-cf-beacon', `{"token": "${CF_BEACON_TOKEN}"}`);
+	(document.body || document.head).appendChild(script);
 })();
 
 // Node.js からテストするための書き出し（ブラウザでは何もしない）
