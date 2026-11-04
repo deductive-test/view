@@ -25,6 +25,13 @@
 	.event-steps .v-btn { min-width: 0; text-transform: none; letter-spacing: normal; }
 	/* 目標まで / ノルマ達成率 / 獲得済み */
 	.event-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+	/* シナリオはタイルが2枚 */
+	.event-stats--scenario { grid-template-columns: repeat(2, 1fr); }
+	/* シナリオの累計欄は読み取り専用なので外枠を出さない */
+	.scenario-total .v-field__outline__start,
+	.scenario-total .v-field__outline__end,
+	.scenario-total .v-field__outline__notch::before,
+	.scenario-total .v-field__outline__notch::after { border-color: transparent; }
 	.stat-tile {
 		padding: 10px 8px;
 		border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
@@ -63,6 +70,19 @@
 	/* 1行目に使わなかった sword_id の名前・text（1行目の下に1行ずつ小さく出す） */
 	.reward-sub { display: block; font-size: .8rem; line-height: 1.4; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
 	.reward-percent { flex: 0 0 auto; font-size: .85rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	/* シナリオの交換所（スマホ幅でも1行に3マス） */
+	.exchange-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+	.exchange-cell { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 8px; text-align: center; }
+	.exchange-cell__body { flex: 1 1 auto; min-width: 0; }
+	.exchange-cell__name { font-size: .85rem; line-height: 1.35; font-weight: 700; overflow-wrap: anywhere; }
+	.exchange-cell__rest { margin-top: 4px; font-size: .85rem; }
+	.exchange-cell__point { font-size: .8rem; color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity)); }
+	/* − / + ボタン（マスの下端に揃える） */
+	.exchange-cell__steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+	.exchange-cell__steps .v-btn { min-width: 0; padding: 0; }
+	/* 交換終了のマスは少し薄くする（− は押せるので、ボタンは薄くしない） */
+	.exchange-cell--done { background: rgba(var(--v-theme-on-surface), .05); }
+	.exchange-cell--done .exchange-cell__body { opacity: .6; }
 </style>
 </head>
 <body>
@@ -119,8 +139,20 @@
 									:variant="eventView.status === 'running' ? 'flat' : 'tonal'">{{ eventView.remainingText }}</v-chip>
 							</div>
 
+							<!-- シナリオの累計ポイント（交換マスの入力から計算する読み取り専用の表示） -->
+							<v-text-field
+								v-if="eventView.event.isScenario"
+								:model-value="fmt(eventView.exchangedPoint)"
+								:label="'累計' + eventView.event.pointName"
+								:suffix="eventView.event.pointUnit"
+								readonly
+								variant="outlined" density="comfortable"
+								hide-details
+								class="scenario-total mb-4"
+							></v-text-field>
 							<!-- 現在のポイント（確定したときに、届いた報酬を所持数に加算する。AUTO_APPLY_REWARDS が false の間は保存だけ） -->
 							<v-text-field
+								v-else
 								v-model="eventPointText"
 								:label="'現在の' + eventView.event.pointName"
 								:suffix="eventView.event.pointUnit"
@@ -133,14 +165,14 @@
 								@update:focused="(f) => { if (!f) onEventPointCommit(); }"
 								@keyup.enter="onEventPointCommit"
 							></v-text-field>
-							<div class="event-steps mb-4">
+							<div v-if="!eventView.event.isScenario" class="event-steps mb-4">
 								<v-btn v-for="d in [1, 5, 10]" :key="d" variant="tonal" color="primary" :disabled="!ready"
 									@click="onEventPointStep(d)">+{{ d }}</v-btn>
 								<v-btn variant="tonal" :disabled="!ready" @click="onEventPointStep(-1)">−1</v-btn>
 							</div>
 
-							<!-- 目標までの状況 -->
-							<div class="event-stats">
+							<!-- 目標までの状況（シナリオでは出さない） -->
+							<div v-if="!eventView.event.isScenario" class="event-stats">
 								<div class="stat-tile">
 									<div class="stat-tile__label">目標まで</div>
 									<div class="stat-tile__value num">{{ fmt(eventView.rest) }}<span class="stat-tile__unit">{{ eventView.event.pointUnit }}</span></div>
@@ -166,6 +198,17 @@
 									<div class="stat-tile__value num">{{ eventView.reachedCount }}<span class="stat-tile__unit">/ {{ eventView.rewards.length }}</span></div>
 								</div>
 							</div>
+							<!-- シナリオ: 全部交換するまでに足りないポイントと、交換回数の進み具合 -->
+							<div v-else class="event-stats event-stats--scenario">
+								<div class="stat-tile">
+									<div class="stat-tile__label">全獲得まで</div>
+									<div class="stat-tile__value num">{{ fmt(eventView.scenarioRest) }}<span class="stat-tile__unit">{{ eventView.event.pointUnit }}</span></div>
+								</div>
+								<div class="stat-tile">
+									<div class="stat-tile__label">獲得済み</div>
+									<div class="stat-tile__value num">{{ fmt(eventView.exchangedTotal) }}<span class="stat-tile__unit">/ {{ fmt(eventView.limitTotal) }}</span></div>
+								</div>
+							</div>
 						</v-card-text>
 					</v-card>
 
@@ -174,9 +217,31 @@
 						v-model:search="inventorySearch" @input="onInventoryInput"></inventory-card>
 				</v-col>
 
-				<!-- ===== 右列：報酬一覧 ===== -->
+				<!-- ===== 右列：報酬一覧（シナリオは交換所） ===== -->
 				<v-col v-if="eventView" cols="12" md="7" lg="8">
-					<v-card border flat>
+					<v-card v-if="eventView.event.isScenario" border flat>
+						<v-card-title class="section-title pt-4">交換所</v-card-title>
+						<v-card-text>
+							<div v-if="!eventView.exchangeCells.length" class="muted">報酬が登録されていません。</div>
+							<div v-else class="exchange-grid">
+								<div v-for="c in eventView.exchangeCells" :key="c.key" class="exchange-cell"
+									:class="{ 'exchange-cell--done': c.remaining === 0 }">
+									<div class="exchange-cell__body">
+										<div class="exchange-cell__name">{{ c.label }}<span v-for="(sub, i) in c.subLabels" :key="i" class="reward-sub">{{ sub }}</span></div>
+										<div class="exchange-cell__rest num">{{ c.remaining === 0 ? '交換終了' : `あと ${fmt(c.remaining)}回` }}</div>
+										<div class="exchange-cell__point num">{{ fmt(c.point) }}{{ eventView.event.pointUnit }}</div>
+									</div>
+									<div class="exchange-cell__steps">
+										<v-btn size="small" variant="tonal" :disabled="c.count === 0"
+											:aria-label="`${c.label} の交換回数を1減らす`" @click="onExchangeStep(c, -1)">−</v-btn>
+										<v-btn size="small" variant="tonal" color="primary" :disabled="c.remaining === 0"
+											:aria-label="`${c.label} の交換回数を1増やす`" @click="onExchangeStep(c, 1)">+</v-btn>
+									</div>
+								</div>
+							</div>
+						</v-card-text>
+					</v-card>
+					<v-card v-else border flat>
 						<v-card-title class="section-title pt-4">報酬</v-card-title>
 						<v-card-subtitle class="pb-0">行を押すと、その報酬を目標にします</v-card-subtitle>
 						<v-card-subtitle class="pb-2" style="white-space: normal;">※報酬のアイテムは自動で加算されません。獲得したらアイテム欄に入力してください</v-card-subtitle>
@@ -351,9 +416,13 @@ const EventCalc = (() => {
 		};
 	}
 
+	/** シナリオのイベントの type（報酬をポイント到達でもらうのではなく、交換所で交換する） */
+	const SCENARIO_TYPE = 'シナリオ';
+
 	/**
 	 * イベントマスタ（event.json）の検証と正規化。
-	 * 各要素は { id, name, start, end, point_name, point_unit, reward: [{ point, item_id, sword_id, text, value }] }。
+	 * 各要素は { id, name, type, start, end, point_name, point_unit, reward: [{ point, item_id, sword_id, text, value, limit }] }。
+	 *   type        : 「シナリオ」なら交換所として表示する（それ以外は報酬の一覧）
 	 *   start / end : 「YYYY-MM-DD HH:mm」（日本時間）
 	 *   reward      : 5つのメンバは常に書く。item_id / sword_id / text は、使わないものを空文字（""）にする
 	 *     item_id  : item.json のアイテム。「名前 x個数」と表示し、ラインに達したら所持数に加算する
@@ -362,12 +431,14 @@ const EventCalc = (() => {
 	 *     複数ある : item_id → sword_id → text の順で最初のものを1行目（個数付き）に、残りをその下の行に小さく表示する
 	 *     すべて空 : その報酬は表示も加算もしない（開発者向けにコンソールへ出すだけ）
 	 *   reward.value: 個数（1以上の整数）。item_id があるときは必須。sword_id / text だけのときは null または省略可（表示に個数を付けない）
+	 *   reward.limit: 交換できる回数の上限（1以上の整数）。type が「シナリオ」のときだけ必須で、それ以外では見ない
 	 *   メンバが無い場合は、空文字（value は null）と同じに扱う
 	 * 誤りのあるイベントは表示しない（他のイベントは使える）。素材計算には影響させない。
 	 * nameMap : アイテムID → 名前（null のときは item_id の存在確認をしない）
 	 * swordMap: 刀剣男士ID → 名前（null のときは sword_id の存在確認をしない）
-	 * 戻り値の events は [{ id, name, start, end, startMs, endMs, pointName, pointUnit, rewards }]（ファイルの記載順）
-	 *   rewards: [{ key: 報酬のキー（進捗の記録に使う）, index: reward 内の位置, point, itemId, swordId, value, text }]（point の小さい順）
+	 * 戻り値の events は [{ id, name, start, end, startMs, endMs, pointName, pointUnit, isScenario, rewards }]（ファイルの記載順）
+	 *   isScenario: type が「シナリオ」なら true
+	 *   rewards: [{ key: 報酬のキー（進捗の記録に使う）, index: reward 内の位置, point, itemId, swordId, value, text }]（point の小さい順。シナリオは記載順で、limit も持つ）
 	 *     itemId / swordId / text は未設定なら null。value は sword_id / text だけの報酬で個数がなければ null
 	 *   key は報酬の中身から作る（rewardKeyOf）。報酬を途中に挿入・並べ替えしても、加算済みの記録がずれない
 	 */
@@ -403,6 +474,7 @@ const EventCalc = (() => {
 			if (!isText(ev.point_name)) errs.push('point_name が空でない文字列ではありません。');
 			// point_unit（「体」など）は任意
 			if (hasOwn(ev, 'point_unit') && typeof ev.point_unit !== 'string') errs.push('point_unit が文字列ではありません。');
+			const isScenario = ev.type === SCENARIO_TYPE;
 			const rewards = [];
 			if (!Array.isArray(ev.reward)) errs.push('reward が配列ではありません。');
 			else ev.reward.forEach((rw, j) => {
@@ -441,6 +513,7 @@ const EventCalc = (() => {
 				}
 				// 刀剣男士マスタにない sword_id は、表示はする（名前はIDのまま）
 				if (swordId !== '' && swordMap && !swordMap.has(swordId)) unknownSwordIds.add(swordId);
+				if (isScenario && (!Number.isSafeInteger(rw.limit) || rw.limit <= 0)) errs.push(`${rpos}: limit が1以上の整数ではありません（${JSON.stringify(rw.limit)}）。`);
 				rewards.push({
 					index: j,
 					point: rw.point,
@@ -448,6 +521,7 @@ const EventCalc = (() => {
 					swordId: swordId !== '' ? swordId : null,
 					value: hasCount ? rw.value : null,
 					text: text !== '' ? text : null,
+					...(isScenario ? { limit: rw.limit } : {}),
 				});
 			});
 			if (errs.length) {
@@ -474,8 +548,9 @@ const EventCalc = (() => {
 				endMs,
 				pointName: ev.point_name,
 				pointUnit: hasOwn(ev, 'point_unit') ? ev.point_unit : '',
-				// 必要ポイントの小さい順（同じポイントは記載順）
-				rewards: [...rewards].sort((a, b) => a.point - b.point || a.index - b.index),
+				isScenario,
+				// 必要ポイントの小さい順（同じポイントは記載順）。シナリオは記載順のまま
+				rewards: isScenario ? rewards : [...rewards].sort((a, b) => a.point - b.point || a.index - b.index),
 			});
 		});
 		if (unknownIds.size) {
@@ -547,8 +622,10 @@ const EventCalc = (() => {
 
 	/**
 	 * 保存済み（またはインポートした）イベントの進捗の整理。
-	 * 形式: { イベントID: { point: 現在のポイント, target: 目標のポイント（未指定は null）, applied: [所持数に加算済みの報酬の key] } }
+	 * 形式: { イベントID: { point: 現在のポイント, target: 目標のポイント（未指定は null）, applied: [所持数に加算済みの報酬の key], exchanged: { 報酬の key: 交換済み回数 } } }
 	 *   例: { "ev000001": { "point": 260, "target": null, "applied": ["250:item101"] } }
+	 *   例: { "ev000002": { "point": 500, "target": null, "applied": [], "exchanged": { "10:item101": 2 } } }
+	 *   exchanged はシナリオの交換所で使う。1以上の安全な整数のものだけ残し、無い・空ならキー自体を付けない
 	 * event.json にないイベントの進捗も消さずに残す。applied の文字列以外（開発中の古い index 形式など）は捨てる。
 	 */
 	function sanitizeEventProgress(raw) {
@@ -559,13 +636,26 @@ const EventCalc = (() => {
 			const applied = Array.isArray(v.applied)
 				? [...new Set(v.applied.filter((k) => typeof k === 'string' && k !== ''))].sort()
 				: [];
+			const exchanged = isPlainObject(v.exchanged)
+				? Object.fromEntries(Object.entries(v.exchanged).filter(([, n]) => Number.isSafeInteger(n) && n >= 1))
+				: {};
 			out[id] = {
 				point: Number.isSafeInteger(v.point) && v.point >= 0 ? v.point : 0,
 				target: Number.isSafeInteger(v.target) && v.target > 0 ? v.target : null,
 				applied,
+				...(Object.keys(exchanged).length ? { exchanged } : {}),
 			};
 		}
 		return out;
+	}
+
+	/**
+	 * シナリオの報酬の交換済み回数（記録がなければ0）。
+	 * event.json の limit を後から減らしても残り回数が負にならないよう、上限で頭打ちにする。
+	 */
+	function exchangedCount(progress, reward) {
+		const n = progress && isPlainObject(progress.exchanged) ? progress.exchanged[reward.key] : 0;
+		return Number.isSafeInteger(n) && n > 0 ? Math.min(n, reward.limit) : 0;
 	}
 
 	// ---------------------------------------------------------------
@@ -599,6 +689,7 @@ const EventCalc = (() => {
 		defaultEventTarget,
 		diffEventRewards,
 		sanitizeEventProgress,
+		exchangedCount,
 		applyInventoryDelta,
 	};
 })();
@@ -843,6 +934,25 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 					...rewards.filter((r) => !r.reached),
 					...rewards.filter((r) => r.reached),
 				];
+				// シナリオの交換所のマス（記載順のまま。個数は2以上のときだけ名前に付ける）
+				const exchangeCells = ev.isScenario ? ev.rewards.map((r) => {
+					const count = EventCalc.exchangedCount(p, r);
+					return {
+						...r,
+						...rewardLabels({ ...r, value: r.value >= 2 ? r.value : null }),
+						count,
+						remaining: r.limit - count,
+					};
+				}) : [];
+				// シナリオのタイル用の集計（シナリオ以外は exchangeCells が空なので 0）
+				// limitTotal: 交換できる回数の合計（5回交換のマスは5と数える。1回あたりの個数 value は使わない）
+				const limitTotal = exchangeCells.reduce((sum, c) => sum + c.limit, 0);
+				// exchangedTotal: 交換済みの回数の合計
+				const exchangedTotal = exchangeCells.reduce((sum, c) => sum + c.count, 0);
+				// exchangedPoint: 交換に使った累計ポイント（交換済み回数 × 交換Pt の合計）
+				const exchangedPoint = exchangeCells.reduce((sum, c) => sum + c.count * c.point, 0);
+				// scenarioRest: 残りを全部交換するのに必要なポイント（交換済みの分は除く）
+				const scenarioRest = exchangeCells.reduce((sum, c) => sum + c.remaining * c.point, 0);
 				let remainingText = '終了';
 				if (status === 'running') remainingText = `残り ${formatRemaining(endMs - now.value)}`;
 				else if (status === 'before') remainingText = `開催前（開始まで ${formatRemaining(ev.startMs - now.value)}）`;
@@ -858,6 +968,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 						: EventCalc.calculatePaceRate(point, target, ev.startMs, endMs, now.value),
 					reachedCount: rewards.filter((r) => r.reached).length,
 					rewards: sortedRewards,
+					exchangeCells,
+					limitTotal,
+					exchangedTotal,
+					exchangedPoint,
+					scenarioRest,
 				};
 			});
 
@@ -872,7 +987,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 			function setEventPoint(ev, point) {
 				const p = ensureEventProgress(ev.id);
 				// 自動の加算・戻しを停止中は、加算・戻しする報酬なしとして扱う（所持数・applied・通知はそのまま）
-				const { apply, revert } = AUTO_APPLY_REWARDS
+				// シナリオの報酬はポイント到達でもらうものではないので、常に加算・戻しをしない
+				const { apply, revert } = AUTO_APPLY_REWARDS && !ev.isScenario
 					? EventCalc.diffEventRewards(ev.rewards, point, p.applied, isApplicableReward)
 					: { apply: [], revert: [] };
 				if (apply.length || revert.length) {
@@ -936,6 +1052,20 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 				const ev = selectedEvent.value;
 				if (!ev) return;
 				ensureEventProgress(ev.id).target = r.point;
+				if (!saveEventProgress(eventProgress)) {
+					showSnack('イベントの進捗をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
+				}
+			}
+
+			/** 交換所の − / + ボタン: 交換済み回数を増減して保存する（0〜上限の範囲。所持数には加算しない。累計ポイントは計算で出すので point は保存しない） */
+			function onExchangeStep(r, delta) {
+				const ev = selectedEvent.value;
+				if (!ev) return;
+				const p = ensureEventProgress(ev.id);
+				const next = Math.min(r.limit, Math.max(0, EventCalc.exchangedCount(p, r) + delta));
+				if (!p.exchanged) p.exchanged = {};
+				if (next === 0) delete p.exchanged[r.key];
+				else p.exchanged[r.key] = next;
 				if (!saveEventProgress(eventProgress)) {
 					showSnack('イベントの進捗をブラウザに保存できませんでした。プライベートモードやストレージの設定を確認してください。');
 				}
@@ -1034,7 +1164,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 				autoApplyRewards: AUTO_APPLY_REWARDS,
 				events, eventLoading, eventLoadFailed, eventPartialError, eventSelectItems,
 				selectedEventId, selectedEvent, eventPointText, eventView,
-				onEventPointCommit, onEventPointStep, onSelectEventTarget,
+				onEventPointCommit, onEventPointStep, onSelectEventTarget, onExchangeStep,
 				inventoryState, inventorySearch, inventoryRows, onInventoryInput,
 			};
 		},
