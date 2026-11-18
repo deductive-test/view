@@ -873,7 +873,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = EventCalc;
 			// イベントselectの項目（終了・開催前のイベントは名前の後ろに表示）
 			const eventSelectItems = computed(() => events.value.map((ev) => {
 				const st = EventCalc.eventStatus(ev, now.value);
-				const suffix = st === 'ended' ? '（終了）' : st === 'before' ? '（開催前）' : '';
+				const suffix = st === 'ended' ? '(終了)' : st === 'before' ? '（開催前）' : '';
 				return { title: ev.name + suffix, value: ev.id };
 			}));
 
